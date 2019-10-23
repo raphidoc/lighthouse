@@ -1,38 +1,47 @@
-library(data.table)
+plotsituvsat <-function(df1 = "", df2 = "", df3 = ""){
+	library(data.table)
+	library(tidyverse)
 
-dfSSP <- fread(file = "./SSP/pixExSSP_Level 2_measurements.txt")
-row.names(dfSSP) <- dfSSP$Name
-dfSSP$ProdID <- "SSP"
+	dfcops <- data.frame(COPS.DB$Rrs.m, row.names = COPS.DB$stationID)
+	colnames(dfcops) <- paste("Rrs.m_",COPS.DB$waves, sep = "")
 
-dfseadas <- fread(file = "./SeaDas/pixExSeaDas_Level 2_measurements.txt")
-row.names(dfseadas) <- dfseadas$Name
-dfseadas$ProdID <-"SeaDas"
+	df1 <- fread(file = "./Sat/Landsat/pixex/SSP1/pixExSSP_Level 2_measurements_1pix.txt")
+	row.names(df1) <- df1$Name
+	df1$ProdID <- "SSP1"
 
-geom_text(aes(label=row.names(DF)),hjust=0, vjust=0)+
+	df2 <- fread(file = "./Sat/Landsat/pixex/SSP1_2/pixExSSP2_Level 2_measurements.txt")
+	row.names(df2) <- df2$Name
+	df2$ProdID <- "SSP2"
 
-dfcops <- data.frame(COPS.DB$Rrs.m, row.names = COPS.DB$stationID)
-colnames(dfcops) <- paste("Rrs.m_",COPS.DB$waves, sep = "")
+	DF <- cbind(simul, df2[,10:13])
+	DF <- na.omit(DF)
 
-DF <- data.frame(COPS = dfcops$Rrs.m_555, SeaDas = dfseadas$Rrs_561, SSP = dfSSP$Rrs_561, row.names = dfseadas$Name )
+	#df <- reshape2::melt(DF)
 
-#df <- reshape2::melt(DF)
+	#calcul y = ax+b and R2
+	m <- lm(DF$COPS ~ DF$SSP2)
+	a <- signif(coef(m)[1], digits = 2)
+	b <- signif(coef(m)[2], digits = 2)
+	textlab <- paste("y = ",b,"x + ",a,sep ="")
+	r2 <- format(summary(m)$r.squared, digits = 3)
+	eq <- paste("italic(R)^2","(SSP1)","==" , r2)
+	eq2 <- paste("italic(R)^2","(SeaDas)","==" , r2)
+	as.expression(eq)
+	#r2 <- paste("R2_Seadas",r2, sep="= ")
+	#geom_text(aes(y = SeaDas, label=row.names(DF)),hjust=0, vjust=0)
+
+p1 <- ggplot(DF)+(aes(xlim = 0.05, ylim = 0.05))
+p2 <- labs(title = "Rrs relationship COPS vs OLI", subtitle = "4 bands simulated RSR (aer, blue, green, red)")
+p3 <- geom_point(aes(x = aer, y = Rrs_443, col = "B1"))
+p4 <- geom_point(aes(x = blue, y = Rrs_482,  col = "B2"))
+p5 <- geom_point(aes(x = green, y = Rrs_561,  col = "B3"))
+p6 <- geom_point(aes(x = red, y = Rrs_655,  col = "B4"))
 
 
-m <- lm(DF$COPS ~ DF$SSP)
-a <- signif(coef(m)[1], digits = 2)
-b <- signif(coef(m)[2], digits = 2)
-textlab <- paste("y = ",b,"x + ",a,sep ="")
-r2 <- format(summary(m)$r.squared, digits = 3)
-eq <- substitute(italic(r)^2~"="~r2)
-as.expression(eq)
-r2Se <- paste("R2_Seadas",r2, sep="= ")
+P4 <- geom_smooth(method=lm, se=F, aes(y=SSP))
+p5 <- annotate("text", x = 0.01, y = 0.009, label = eq, parse = T)
 
-ggplot(DF, aes(COPS, y = SeaDas))+
-	geom_point(aes(y = SSP, col = "SSP"))+geom_text(aes( y = SSP,label=row.names(DF)),hjust=0, vjust=0)+
-	geom_smooth(method=lm, se=F, aes(y=SSP))+
-	geom_point(aes(y = SeaDas, col = "SeaDas"))+geom_text(aes(y = SeaDas, label=row.names(DF)),hjust=0, vjust=0)+
-	annotate("text", x = 0.01, y = 0.009, label = r2, parse = T)+
-	geom_smooth(method=lm, se=F, aes(y=SeaDas))+
-	annotate("text", x = 0.01, y = 0.005, label = r2Se, parse = T)
+p7 <- geom_smooth(method=lm, se=F, aes(y=SeaDas))
+p8 <- annotate("text", x = 0.01, y = 0.004, label = eq2, parse = T)
 
-
+}

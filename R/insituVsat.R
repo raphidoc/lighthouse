@@ -3,7 +3,7 @@
 #extract the date and convert them and made unique in a data frame
 #library(rLandsat)
 
-insituVsat <- function(L2path= "")
+insituVsat <- function(L2path= ""){
 	L2path <- ""
 	L2path <- paste(L2path, list.files(L2path, pattern = "(\\d\\d\\d[a-z]?)"), sep = "")
 	indates <- substring(L2path, regexpr("(\\d{8})", L2path, fixed = F),
@@ -26,7 +26,7 @@ insituVsat <- function(L2path= "")
 		result <- rbind(result, tempdf)
 	}
 
-
+}
 	# #getting available products
 	# prods = espa_products(result$product_id)
 	# prods = prods$master

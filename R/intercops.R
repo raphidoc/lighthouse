@@ -17,8 +17,7 @@ simulcops <- function(band = c("aer", "blue", "green", "red")){
 
 	for(i in 1:length(band)){
 		#Create the match DF of RSR wavelenght and COPS
-		dfx <- merge(RSRoli[[band[i]]], interpol, all=T)
-		dfx <- dfx[-1,1:length(RSRoli[[band[i]]])]
+		dfx <- interpol[,match(colnames(RSRoli[[band[i]]]), colnames(interpol))]
 
 		#create a DF of same size as dfx with RSR values
 		sizey <- do.call("rbind", replicate(length(dfx[,1]), RSRoli[[band[i]]], simplify = F))

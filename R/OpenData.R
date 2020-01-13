@@ -1,11 +1,10 @@
 #Intended to be the basis of the futur workflow with Cops data:
 #Autoffil of init.cops.dat (instruments(Ed0, EuZ, LuZ, EdZ), date/time format of casts and GPS, ...)
-#and info.cops.dat (keep only descending point, adjust tilt?, remove layer?, Loess?)
-#library(data.table)
+#and info.cops.dat (keep only descending point, adjust tilt?, remove surface layer?, Loess?)
 
+library(data.table)
 
 OpenCast <- function(path = ""){
-  library(data.table)
   Casts_in_dir <- list.files(path, pattern = "CAST")
   print(Casts_in_dir)
   for (Cast in Casts_in_dir){
@@ -16,7 +15,6 @@ OpenCast <- function(path = ""){
 }
 
 OpenGPS <- function(path = ""){
-  library(data.table)
   GPS_ind_dir <- list.files(path, pattern = "GPS")
   print(GPS_ind_dir)
   assign("GPS_data", fread(file  = GPS_ind_dir), envir = .GlobalEnv)

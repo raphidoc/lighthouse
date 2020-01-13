@@ -1,4 +1,6 @@
 library(tidyverse)
+library(data.table)
+
 intercops <- function(){
 
 	waves <- seq(COPS.DB$waves[4],COPS.DB$waves[length(COPS.DB$waves)],1)
@@ -15,6 +17,7 @@ intercops <- function(){
 
 simulcops <- function(band = c("aer", "blue", "green", "red")){
 
+	load(file = "/home/raphael/R/lighthouse/data/RSRoli.RData")
 	for(i in 1:length(band)){
 		#Create the match DF of RSR wavelenght and COPS
 		dfx <- interpol[,match(colnames(RSRoli[[band[i]]]), colnames(interpol))]
@@ -33,3 +36,21 @@ simulcops <- function(band = c("aer", "blue", "green", "red")){
 	colnames(simul) <- band
 	rownames(simul) <- COPS.DB$stationID
 }
+
+dfsat <- fread(file = "./Sat/Landsat/pixex/pixEx1h_Level 2_measurements.txt", colClasses = c(Name="character"), )
+row.names(dfsat) <- dfsat$Name
+
+
+#TO ADD verif of same length and perfect match, if so do nothing (nest the two above inside)
+if(length(dfsat[,1])>length(simul[,1])){
+	dfsat <- dfsat[match(rownames(simul), rownames(dfsat)),]
+}
+if(length(dfsat[,1])<length(simul[,1])){
+	simul <- simul[match(rownames(dfsat), rownames(simul)),]
+}
+
+DF1h <- cbind(simul, dfsat[,10:13])
+DF1h <- na.omit(DF1h)
+
+remove(simul)
+remove(dfsat)

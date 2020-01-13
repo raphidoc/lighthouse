@@ -9,7 +9,7 @@ plotsituvsat <-function(df1 = "", df2 = "", df3 = ""){
 	row.names(df1) <- df1$Name
 	df1$ProdID <- "SSP1"
 
-	df2 <- fread(file = "./Landsat/pixex/pixEx1h_Level 2_measurements.txt", colClasses = c(Name="character"))
+	df2 <- fread(file = "./Sat/Landsat/pixex/pixEx1h_Level 2_measurements.txt", colClasses = c(Name="character"))
 	row.names(df2) <- df2$Name
 	df2$ProdID <- "SSP2"
 
@@ -21,7 +21,7 @@ plotsituvsat <-function(df1 = "", df2 = "", df3 = ""){
 	#df <- reshape2::melt(DF)
 
 	#calcul y = ax+b and R2
-	m <- lm(DF$COPS ~ DF$SSP2)
+	m <- lm(DF24h[,4] ~ DF24h[,8])
 	a <- signif(coef(m)[1], digits = 2)
 	b <- signif(coef(m)[2], digits = 2)
 	textlab <- paste("y = ",b,"x + ",a,sep ="")

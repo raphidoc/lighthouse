@@ -4,10 +4,10 @@
 #library(rLandsat)
 
 insituVsat <- function(L2path= ""){
-	L2path <- ""
+	L2path <- "/home/raphael/Data/Chone/Cops/L2"
 	L2path <- paste(L2path, list.files(L2path, pattern = "(\\d\\d\\d[a-z]?)"), sep = "")
-	indates <- substring(L2path, regexpr("(\\d{8})", L2path, fixed = F),
-					 regexpr("(\\d{8})", L2path, fixed = F)+7)
+	indates <- substring(L2path, regexpr("(\\d{8})", L2path, fixed = F)+1,
+					 regexpr("(\\d{8})", L2path, fixed = F)+8)
 
 	#Create a data frame with unique date
 	indates <- as.Date.character(indates, format = "%Y%m%d")

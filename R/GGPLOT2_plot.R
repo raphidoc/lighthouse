@@ -3,13 +3,14 @@ library(ggplot2)
 
 # Inputs
 save_figure <- T
-plot_title <- bquote('COPS vs OLI')
+plot_title <- NULL #bquote('COPS vs OLI')
 legend_title <- ""
-legend_position <- "right"
-xmin <- 0; xmax <- 0.0032;  xstp <- 0.001; xlbl <- bquote('COPS '*R[rs]* '('*sr^{-1}*')')
-ymin <- 0; ymax <- 0.0045; ystp <- 0.001; ylbl <- bquote('OLI '*R[rs]* '('*sr^{-1}*')')
-vnames <- c("B1", "B2", "B3", "B4")
-vcolor <- rainbow(length(vnames))
+legend_position <- c(0.54,0.28)
+xmin <- 0; xmax <- 0.0042;  xstp <- 0.001; xlbl <- bquote('COPS '*R[rs]* '('*sr^{-1}*')')
+ymin <- 0; ymax <- 0.0042; ystp <- 0.001; ylbl <- bquote('OLI '*R[rs]* '('*sr^{-1}*')')
+vnames <- c(expression(paste("B1     ", "RMSE=0.556"), paste("B2     ", "RMSE=0.475"),
+                       paste("B3     ", "RMSE=0.409"), paste("B4     ", "RMSE=0.211")))
+vcolor <- c("blueviolet", "turquoise2", "seagreen3", "red2") #rainbow(length(vnames))
 filename <- "COPSvsOLI"
 
 # Making aspect ratio of the figure to be 1 (square)
@@ -20,14 +21,19 @@ if (save_figure)
 {  if (!(grepl(".tif", filename, fixed = TRUE)))
   filename <- paste0(filename,".tif")
 tiff(filename, width = 17, height = 17, units = "cm", res = 300, compression = "lzw")
+#png(filename, width = 17, height = 17, units = "cm", res = 300)
 }
 
 # Plotting the data
-g <- ggplot(DF) +
-  geom_point(aes(x = DF$aer, y = DF$Rrs_443, colour ='B1'), na.rm = FALSE, show.legend = TRUE) +
-  geom_point(aes(x = DF$blue, y = DF$Rrs_482, colour ='B2'), na.rm = FALSE, show.legend = TRUE) +
-  geom_point(aes(x = DF$green, y = DF$Rrs_561, colour ='B3'), na.rm = FALSE, show.legend = TRUE) +
-  geom_point(aes(x = DF$red, y = DF$Rrs_655, colour ='B4'), na.rm = FALSE, show.legend = TRUE) +
+g <- ggplot(DF24h) +
+  geom_point(aes(x = DF24h$aer, y = DF24h$Rrs_443, colour ='B1'), na.rm = FALSE, show.legend = TRUE) +
+  geom_point(aes(x = DF24h$blue, y = DF24h$Rrs_482, colour ='B2'), na.rm = FALSE, show.legend = TRUE) +
+  geom_point(aes(x = DF24h$green, y = DF24h$Rrs_561, colour ='B3'), na.rm = FALSE, show.legend = TRUE) +
+  geom_point(aes(x = DF24h$red, y = DF24h$Rrs_655, colour ='B4'), na.rm = FALSE, show.legend = TRUE) +
+  geom_smooth(method=lm, se=F, aes(x = DF24h$aer, y = DF24h$Rrs_443, colour ='B1'))+
+  geom_smooth(method=lm, se=F, aes(x = DF24h$blue, y = DF24h$Rrs_482, colour ='B2'))+
+  geom_smooth(method=lm, se=F, aes(x = DF24h$green, y = DF24h$Rrs_561, colour ='B3'))+
+  geom_smooth(method=lm, se=F, aes(x = DF24h$red, y = DF24h$Rrs_655, colour ='B4'))+
   labs(title = plot_title, color = legend_title) +
   scale_colour_manual(labels = vnames, values = vcolor) +
   coord_fixed(ratio = asp_rat, xlim = c(xmin, xmax),
@@ -55,8 +61,10 @@ g <- ggplot(DF) +
                                         size = 0.5, linetype = "dotted"),
         panel.grid.minor = element_blank(),
         panel.border = element_rect(colour = "black", fill = NA, size = 1.5))
+
 g
 
 # Saving the tiff file, if we want to save figure
 if (save_figure)
   dev.off()
+

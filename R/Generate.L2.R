@@ -10,9 +10,28 @@ Generate.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = paste(getwd(
 
 	#Read LogTable file
 	LogTable <- fread(LogTable, data.table = F)
-	CopsTable <- LogTable %>%
+	CopsTable <- LogTable %>% filter(COPS == "T") %>%
 		mutate(DateTime = ymd_hm(paste(Date, Time, sep = "T"))) %>%
 		select(StationID, Boat, DateTime, Lat, Long, COPS)
+
+	#associate GPS file by station
+	GPSpath <- file.path(L1, list.files(L1, pattern = "GPS", recursive = T))
+	GPSdate <- ymd(str_extract(GPSpath, "[:digit:]{8}"))
+	GPSboat <- str_extract(GPSpath, "(?<=/)[:alpha:]+(?=_[:digit:]{8})")
+	GPSTable <- data.frame(Path = GPSpath, Date = GPSdate, Boat = GPSboat, stringsAsFactors=FALSE)
+
+	IDlist <- c()
+	for(i in 1:length(CopsTable[,1])){
+		if(any(date(CopsTable$DateTime)[i] == GPSTable$Date & CopsTable$Boat[i] == GPSTable$Boat)){
+			IDlist[i] <- GPSTable$Path[which(date(CopsTable$DateTime)[i] == GPSTable$Date & CopsTable$Boat[i] == GPSTable$Boat)]
+
+		}
+		else{
+			IDlist[i] <- NA
+		}
+	}
+	CopsTable <- CopsTable %>% mutate(GPS = IDlist)
+
 
 	#Create L1Table of all URC casts and extract relevant information for association
 	L1List <- list.files(L1, pattern = "URC", recursive = T)
@@ -31,10 +50,10 @@ Generate.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = paste(getwd(
 	}
 
 	#Create column of time interval
-	CopsTable <- CopsTable %>% filter(COPS == "T") %>% group_by(Boat) %>% arrange(DateTime, .by_group = T) %>%
+	CopsTable <- CopsTable %>% group_by(Boat) %>% arrange(DateTime, .by_group = T) %>%
 		mutate(start =  int_start(Station.interval(DateTime)),
 			  end = int_end(Station.interval(DateTime)))
-	#Tow steps beascause class "interval" is destroyed by row_bind() used in group_by() operation
+	#Tow steps because class "interval" is destroyed by row_bind() used in group_by() operation
 	CopsTable <- CopsTable %>% ungroup() %>% mutate(inters = interval(start, end))
 
 	#associate cast with station based on a time interval
@@ -58,8 +77,11 @@ Generate.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = paste(getwd(
 		write(COPSpath[i], file = file.path(COPSpath[i], "directories.for.cops.dat"))
 	}
 	write(COPSpath, file = file.path(L2dir, "directories.for.cops.dat"))
-	return(COPSdirs = file.path(L2dir, "directories.for.cops.dat"))
+	return(dirdats = file.path(L2dir, "directories.for.cops.dat"))
 
+	#Copy GPS file in each station
+	CopsTable <- CopsTable %>% mutate(L2path = COPSpath)
+	file.copy(CopsTable$GPS, file.path(CopsTable$L2path, str_extract(CopsTable$GPS, "GPS_[:digit:]{6}\\.[:alpha:]{3}")))
 
 	#create L2path for each matched cast and copy
 	L1Table <- L1Table %>% filter(StationID != "NA") %>%
@@ -67,5 +89,6 @@ Generate.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = paste(getwd(
 	L1files <- as.character(L1Table$L1path)
 	L2path <- L1Table$L2path
 	file.copy(L1files, L2path)
+
 
 }

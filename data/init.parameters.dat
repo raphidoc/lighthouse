@@ -17,16 +17,16 @@ win.width;numeric; 9
 win.height;numeric; 7
 
 # optics description #################################
-instruments.optics;character;Ed0,EdZ,LuZ
-tiltmax.optics;numeric; 10,5,5
-time.interval.for.smoothing.optics;numeric; 40, 40,40
-sub.surface.removed.layer.optics;numeric; 0, 0.1, 0
-delta.capteur.optics;numeric; 0, -0.05, 0.238
-radius.instrument.optics;numeric; 0.035, 0.035, 0.035
+instruments.optics;character;Ed0,EdZ,LuZ,EuZ
+tiltmax.optics;numeric; 10,5,5,5
+time.interval.for.smoothing.optics;numeric; 20, 20,20,20
+sub.surface.removed.layer.optics;numeric; 0, 0.1, 0, 0
+delta.capteur.optics;numeric; 0, -0.05, 0.238, 0.238
+radius.instrument.optics;numeric; 0.035, 0.035, 0.035,  0.035
 
 # look INTO a data file
-format.date;character;%d/%m/%Y %H:%M:%S
-instruments.others;character;Master
+format.date;character;%m/%d/%Y %H:%M:%S
+instruments.others;character;NA
 depth.is.on;character;LuZ
 
 # look at the NAME of a data file

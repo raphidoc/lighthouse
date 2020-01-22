@@ -37,20 +37,23 @@ simulcops <- function(band = c("aer", "blue", "green", "red")){
 	rownames(simul) <- COPS.DB$stationID
 }
 
-dfsat <- fread(file = "./Sat/Landsat/pixex/pixEx1h_Level 2_measurements.txt", colClasses = c(Name="character"), )
-row.names(dfsat) <- dfsat$Name
+#function to create final dataset for intercomparaison between in-situ and remote
+
+#read pixel information from pixex output
+#dfsat <- fread(file = "./Sat/Landsat/pixex/pixEx1h_Level 2_measurements.txt", colClasses = c(Name="character"), )
+#row.names(dfsat) <- dfsat$Name
 
 
 #TO ADD verif of same length and perfect match, if so do nothing (nest the two above inside)
-if(length(dfsat[,1])>length(simul[,1])){
-	dfsat <- dfsat[match(rownames(simul), rownames(dfsat)),]
-}
-if(length(dfsat[,1])<length(simul[,1])){
-	simul <- simul[match(rownames(dfsat), rownames(simul)),]
-}
+#if(length(dfsat[,1])>length(simul[,1])){
+	#dfsat <- dfsat[match(rownames(simul), rownames(dfsat)),]
+#}
+#if(length(dfsat[,1])<length(simul[,1])){
+	#simul <- simul[match(rownames(dfsat), rownames(simul)),]
+#}
 
-DF1h <- cbind(simul, dfsat[,10:13])
-DF1h <- na.omit(DF1h)
+#DF1h <- cbind(simul, dfsat[,10:13])
+#DF1h <- na.omit(DF1h)
 
-remove(simul)
-remove(dfsat)
+#remove(simul)
+#remove(dfsat)

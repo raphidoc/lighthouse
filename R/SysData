@@ -1,4 +1,5 @@
 init.file <- scan(paste0(Sys.getenv("R_COPS_DATA_DIR"), "/init.parameters.dat"), what = "", sep = "\n")
 info.header <- scan(paste0(Sys.getenv("R_COPS_DATA_DIR"), "/info.header.dat"), what = "", sep = "\n")
+RSRoli
 
-use_data(init.file, info.header, internal = T)
+use_data(init.file, info.header, RSRoli, internal = T)

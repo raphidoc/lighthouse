@@ -1,6 +1,4 @@
-library(tidyverse)
-library(data.table)
-
+#function to interpolate COPS, add error, better not to use it
 intercops <- function(){
 
 	waves <- seq(COPS.DB$waves[4],COPS.DB$waves[length(COPS.DB$waves)],1)
@@ -15,7 +13,9 @@ intercops <- function(){
 	colnames(interpol) <- waves
 }
 
-simulcops <- function(band = c("aer", "blue", "green", "red")){
+#function to simulate Relative spectral response of a sensor
+
+RSRsimul <- function(band = c("aer", "blue", "green", "red")){
 
 	load(file = "/home/raphael/R/lighthouse/data/RSRoli.RData")
 	for(i in 1:length(band)){

@@ -1,26 +1,32 @@
-#function to interpolate COPS, add error, better not to use it
-intercops <- function(){
-
-	waves <- seq(COPS.DB$waves[4],COPS.DB$waves[length(COPS.DB$waves)],1)
-
-	for(i in 1:length(COPS.DB$Rrs.m[,1])){
-		tempdf <- data.frame(t(approx(COPS.DB$waves, COPS.DB$Rrs.m[i,], xout = waves, method = "linear")$y))
-		if (!exists("interpol") && !is.data.frame("interpol")){
-			interpol <- data.frame(matrix(ncol = length(waves), nrow = 0))
-		}
-		interpol <- rbind(interpol, tempdf)
-	}
-	colnames(interpol) <- waves
-}
-
 #function to simulate Relative spectral response of a sensor
 
-RSRsimul <- function(band = c("aer", "blue", "green", "red")){
+RSRsimul <- function(COPS.DB, band = c(), Sensor = ){
 
-	load(file = "/home/raphael/R/lighthouse/data/RSRoli.RData")
 	for(i in 1:length(band)){
-		#Create the match DF of RSR wavelenght and COPS
-		dfx <- interpol[,match(colnames(RSRoli[[band[i]]]), colnames(interpol))]
+		#Create the match DF of RSR wavelength and COPS, bandwise
+
+		#do the math sum(f(x)*a(x))/sum(f(x))
+		SRF <- function(x,y){
+			xy <- c()
+			xy <- append(xy, (x*y))
+			RSR <- sum((x*a))/sum(x)
+		}
+
+		RSR.DF <- RSRoli %>% filter(RSRoli$Wavelength %in% COPS.DB$Lambda)  %>% filter(Band == band[i])
+
+
+		COPS.DF <- COPS.DB %>% filter(COPS.DB$Lambda %in% RSR.DF$Wavelength) %>% select(ID:Rrs.m)
+		#mutate(RSR = rep(RSR.DF[which(RSR.DF$Wavelength %in% COPS.DB$Lambda),]$RSR))
+
+
+		test <-COPS.DF %>% group_by(ID) %>%
+			mutate(Rrs.rsr = map2(Rrs.m, RSR.DF$RSR, ~ sum((.x*.y))/sum(.y)))
+
+
+		RSR.DF <- RSR.DF %>% mutate(Simul = )
+
+		#Simul.DF <- COPS.DB %>% select(ID:sunzen) %>% unique() %>% mutate(band[i]= )
+
 
 		#create a DF of same size as dfx with RSR values
 		sizey <- do.call("rbind", replicate(length(dfx[,1]), RSRoli[[band[i]]], simplify = F))
@@ -57,3 +63,18 @@ RSRsimul <- function(band = c("aer", "blue", "green", "red")){
 
 #remove(simul)
 #remove(dfsat)
+
+#function to interpolate COPS, add error, better not to use it
+intercops <- function(){
+
+	waves <- seq(COPS.DB$waves[4],COPS.DB$waves[length(COPS.DB$waves)],1)
+
+	for(i in 1:length(COPS.DB$Rrs.m[,1])){
+		tempdf <- data.frame(t(approx(COPS.DB$waves, COPS.DB$Rrs.m[i,], xout = waves, method = "linear")$y))
+		if (!exists("interpol") && !is.data.frame("interpol")){
+			interpol <- data.frame(matrix(ncol = length(waves), nrow = 0))
+		}
+		interpol <- rbind(interpol, tempdf)
+	}
+	colnames(interpol) <- waves
+}

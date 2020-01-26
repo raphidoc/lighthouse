@@ -1,46 +1,28 @@
 #function to simulate Relative spectral response of a sensor
+#Do the math sum(f(x)*a(x))/sum(f(x))
+#TO DO : add multiple sensors
 
-RSRsimul <- function(COPS.DB, band = c(), Sensor = ){
+SRF <- function(COPS.DB, band = c("B1", "B2", "B3", "B4", "B5"), Sensor = c("oli")){
 
 	for(i in 1:length(band)){
 		#Create the match DF of RSR wavelength and COPS, bandwise
+		SRF.DF <- RSRoli %>% filter(RSRoli$Wavelength %in% COPS.DB$Lambda)  %>% filter(Band == band[i])
 
-		#do the math sum(f(x)*a(x))/sum(f(x))
-		SRF <- function(x,y){
-			xy <- c()
-			xy <- append(xy, (x*y))
-			RSR <- sum((x*a))/sum(x)
-		}
-
-		RSR.DF <- RSRoli %>% filter(RSRoli$Wavelength %in% COPS.DB$Lambda)  %>% filter(Band == band[i])
-
-
-		COPS.DF <- COPS.DB %>% filter(COPS.DB$Lambda %in% RSR.DF$Wavelength) %>% select(ID:Rrs.m)
+		COPS.DF <- COPS.DB %>% filter(COPS.DB$Lambda %in% SRF.DF$Wavelength) %>% select(ID:Rrs.m)
 		#mutate(RSR = rep(RSR.DF[which(RSR.DF$Wavelength %in% COPS.DB$Lambda),]$RSR))
 
+		MATH.D <-COPS.DF %>% group_by(ID) %>% nest() %>%
+			mutate(data2 = map(data, ~ select(., Rrs.m))) %>%
+			mutate(data3 = list(data2[[1]]*SRF.DF$RSR)) %>%
+			mutate(!!band[i] := sum(reduce(data3[[1]], `+`)/reduce(SRF.DF$RSR, `+`))) #%>% unnest()
 
-		test <-COPS.DF %>% group_by(ID) %>%
-			mutate(Rrs.rsr = map2(Rrs.m, RSR.DF$RSR, ~ sum((.x*.y))/sum(.y)))
-
-
-		RSR.DF <- RSR.DF %>% mutate(Simul = )
-
-		#Simul.DF <- COPS.DB %>% select(ID:sunzen) %>% unique() %>% mutate(band[i]= )
-
-
-		#create a DF of same size as dfx with RSR values
-		sizey <- do.call("rbind", replicate(length(dfx[,1]), RSRoli[[band[i]]], simplify = F))
-
-		#do the math sum(f(x)*a(x))/sum(f(x))
-		tempdf <- dfx * sizey
-		tempdf <- data.frame(rowSums(tempdf)/rowSums(sizey))
-		if (!exists("simul") && !is.data.frame("simul")){
-			simul <- data.frame(matrix(nrow = length(tempdf[,1]), ncol = 0))
+		if (!exists("COPS.RSR.DF") && !is.data.frame("COPS.RSR.DF")){
+			COPS.RSR.DF <- data.frame(unique(COPS.DF[,1:5]))
 		}
-		simul <- cbind(simul, tempdf)
+		COPS.RSR.DF <- cbind(COPS.RSR.DF, MATH.D[[5]])
+		colnames(COPS.RSR.DF)[5+i] <- band[i]
+
 	}
-	colnames(simul) <- band
-	rownames(simul) <- COPS.DB$stationID
 }
 
 #function to create final dataset for intercomparaison between in-situ and remote
@@ -65,16 +47,3 @@ RSRsimul <- function(COPS.DB, band = c(), Sensor = ){
 #remove(dfsat)
 
 #function to interpolate COPS, add error, better not to use it
-intercops <- function(){
-
-	waves <- seq(COPS.DB$waves[4],COPS.DB$waves[length(COPS.DB$waves)],1)
-
-	for(i in 1:length(COPS.DB$Rrs.m[,1])){
-		tempdf <- data.frame(t(approx(COPS.DB$waves, COPS.DB$Rrs.m[i,], xout = waves, method = "linear")$y))
-		if (!exists("interpol") && !is.data.frame("interpol")){
-			interpol <- data.frame(matrix(ncol = length(waves), nrow = 0))
-		}
-		interpol <- rbind(interpol, tempdf)
-	}
-	colnames(interpol) <- waves
-}

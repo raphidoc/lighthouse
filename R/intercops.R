@@ -3,6 +3,7 @@
 #TO DO : add multiple sensors
 
 SRF <- function(COPS.DB, band = c("B1", "B2", "B3", "B4", "B5"), Sensor = c("oli")){
+	temp.data <- COPS.DB %>% group_by(ID) %>% nest()
 
 	for(i in 1:length(band)){
 		#Create the match DF of RSR wavelength and COPS, bandwise
@@ -11,16 +12,19 @@ SRF <- function(COPS.DB, band = c("B1", "B2", "B3", "B4", "B5"), Sensor = c("oli
 		COPS.DF <- COPS.DB %>% filter(COPS.DB$Lambda %in% SRF.DF$Wavelength) %>% select(ID:Rrs.m)
 		#mutate(RSR = rep(RSR.DF[which(RSR.DF$Wavelength %in% COPS.DB$Lambda),]$RSR))
 
-		MATH.D <-COPS.DF %>% group_by(ID) %>% nest() %>%
+		MATH.D <- COPS.DF %>% group_by(ID) %>% nest() %>%
 			mutate(data2 = map(data, ~ select(., Rrs.m))) %>%
 			mutate(data3 = list(data2[[1]]*SRF.DF$RSR)) %>%
-			mutate(!!band[i] := sum(reduce(data3[[1]], `+`)/reduce(SRF.DF$RSR, `+`))) #%>% unnest()
+			mutate(!!band[i] := sum(reduce(data3[[1]], `+`)/reduce(SRF.DF$RSR, `+`))) %>% ungroup() %>%
+			mutate(data = map(temp.data$data, `[`, names(temp.data$data[[1]]))) %>%
+			select(-data2, -data3) %>% unnest(cols = data)
+
 
 		if (!exists("COPS.RSR.DF") && !is.data.frame("COPS.RSR.DF")){
-			COPS.RSR.DF <- data.frame(unique(COPS.DF[,1:5]))
+			COPS.RSR.DF <- data.frame(COPS.DB)
 		}
-		COPS.RSR.DF <- cbind(COPS.RSR.DF, MATH.D[[5]])
-		colnames(COPS.RSR.DF)[5+i] <- band[i]
+		COPS.RSR.DF <- cbind(COPS.RSR.DF, MATH.D[[15]])
+		colnames(COPS.RSR.DF)[14+i] <- paste0("COPS_", band[i])
 
 	}
 }

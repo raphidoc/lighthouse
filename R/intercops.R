@@ -15,7 +15,8 @@ SRF <- function(COPS.DB, band = c("B1", "B2", "B3", "B4", "B5"), Sensor = c("oli
 		MATH.D <- COPS.DF %>% group_by(ID) %>% nest() %>%
 			mutate(data2 = map(data, ~ select(., Rrs.m))) %>%
 			mutate(data3 = list(data2[[1]]*SRF.DF$RSR)) %>%
-			mutate(!!band[i] := sum(reduce(data3[[1]], `+`)/reduce(SRF.DF$RSR, `+`))) %>% ungroup() %>%
+			mutate(!!band[i] := sum(reduce(data3[[1]], `+`)/reduce(SRF.DF$RSR, `+`))) %>% #tidying back
+			ungroup() %>%
 			mutate(data = map(temp.data$data, `[`, names(temp.data$data[[1]]))) %>%
 			select(-data2, -data3) %>% unnest(cols = data)
 
@@ -23,10 +24,11 @@ SRF <- function(COPS.DB, band = c("B1", "B2", "B3", "B4", "B5"), Sensor = c("oli
 		if (!exists("COPS.RSR.DF") && !is.data.frame("COPS.RSR.DF")){
 			COPS.RSR.DF <- data.frame(COPS.DB)
 		}
-		COPS.RSR.DF <- cbind(COPS.RSR.DF, MATH.D[[15]])
-		colnames(COPS.RSR.DF)[14+i] <- paste0("COPS_", band[i])
-
+		COPS.RSR.DF <- cbind(COPS.RSR.DF, MATH.D[[15]]) #five if not tidy
+		colnames(COPS.RSR.DF)[14+i] <- paste0("COPS_", band[i]) #4 ""
+		rm(COPS.DF, MATH.D, SRF.DF)
 	}
+	rm(temp.data)
 }
 
 #function to create final dataset for intercomparaison between in-situ and remote

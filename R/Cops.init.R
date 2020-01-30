@@ -7,7 +7,7 @@ Cops.init.R <- function(dirdats){
 
 	#str_subset(init.file, "#", negate = T)
 
-	#dirdats <- scan(file = "directories.for.cops.dat", "", sep = "\n", comment.char = "#")
+	dirdats <- scan(file = "directories.for.cops.dat", "", sep = "\n", comment.char = "#")
 	for(dirdat in dirdats) {
 		if(!file.exists(file.path(dirdat, list.files(dirdat, pattern = "CAST")[1]))) {
 			cat(dirdat, "> No cast\n")

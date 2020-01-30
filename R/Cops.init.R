@@ -37,6 +37,6 @@ Cops.init.R <- function(dirdats){
 		write(init.params, file = file.path(dirdat, "init.cops.dat"))
 	}
 
-a}
+}
 
 

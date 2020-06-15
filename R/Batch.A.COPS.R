@@ -3,7 +3,7 @@
 
 Batch.A.COPS <- function(copsL2= "", cdomdir= "", partdir= ""){
 
-  copsL2 <- "/home/raphael/Data/Chone/Cops/L2/"
+  copsL2 <- "/home/raphael/Data/Chone/L2/"
   cdomdir <- "/home/raphael/Data/Chone/aLab/CDOM/RData/"
   partdir <- "/home/raphael/Data/Chone/aLab/PARTICULATE/RData/"
 

@@ -1,5 +1,5 @@
 #Modify Info file based on directories.for.Cops (to be be changed, as sys.getenv)
-#library(data.table)
+library(data.table)
 
 
 Info.Manager <- function(chfield= "", to= "", mindate, maxdate){
@@ -18,7 +18,7 @@ Info.Manager <- function(chfield= "", to= "", mindate, maxdate){
         cat(dirdat, "does not exist")
         next()
     }
-    print("PROCESSING DIRECTORY", str(dirdat))
+    print(paste0("PROCESSING DIRECTORY:", dirdat))
 
     #look if absorption file empty
     if(chfield=="chl" && to == "0"){

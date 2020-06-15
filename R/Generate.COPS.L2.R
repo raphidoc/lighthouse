@@ -6,7 +6,11 @@ library(data.table)
 library(tidyverse)
 library(lubridate)
 
-Generate.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = paste(getwd(),list.files(pattern = "LogTable"), sep = "/")){
+
+project <- "/media/raphael/D/Data/Chone"
+setwd(project)
+
+Generate.COPS.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = file.path(getwd(),list.files(pattern = "Field_Log"))){
 
 	#Read LogTable file
 	LogTable <- fread(LogTable, data.table = F)
@@ -74,10 +78,10 @@ Generate.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = paste(getwd(
 	COPSpath <- file.path(L2dir, paste0(date(CopsTable$DateTime), "_Station", CopsTable$StationID), "COPS")
 	for(i in 1:length(COPSpath)){
 		dir.create(COPSpath[i], recursive = T)
-		write(COPSpath[i], file = file.path(COPSpath[i], "directories.for.cops.dat"))
+		write(COPSpath[i], file = file.path(COPSpath[i], "directories.for.COPS.dat"))
 	}
-	write(COPSpath, file = file.path(L2dir, "directories.for.cops.dat"))
-	return(dirdats = file.path(L2dir, "directories.for.cops.dat"))
+	write(COPSpath, file = file.path(L2dir, "directories.for.COPS.dat"))
+	return(dirdats = file.path(L2dir, "directories.for.COPS.dat"))
 
 	#Copy GPS file in each station
 	CopsTable <- CopsTable %>% mutate(L2path = COPSpath)
@@ -88,7 +92,7 @@ Generate.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = paste(getwd(
 		mutate(L2path = file.path(L2dir, paste0(date(DateTime), "_Station", StationID), "COPS", Name))
 	L1files <- as.character(L1Table$L1path)
 	L2path <- L1Table$L2path
-	file.copy(L1files, L2path)
+	file.copy(L1files, L2path, overwrite = F)
 
 
 }

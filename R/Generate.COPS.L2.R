@@ -7,7 +7,7 @@ library(tidyverse)
 library(lubridate)
 
 
-project <- "/media/raphael/D/Data/Chone"
+project <- "/mnt/D/Data/Chone"
 setwd(project)
 
 Generate.COPS.L2 <- function(L1 = paste0(getwd(),"/L1/COPS"), LogTable = file.path(getwd(),list.files(pattern = "Field_Log"))){

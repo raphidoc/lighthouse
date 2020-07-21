@@ -1,19 +1,19 @@
 #function to create and auto fill init.file and info.file
 
-library(data.table)
-library(tidyverse)
+#library(data.table)
+#library(tidyverse)
 
 Cops.init.R <- function(dirdats){
 
 	#str_subset(init.file, "#", negate = T)
 
-	dirdats <- scan(file = "directories.for.COPS.dat", "", sep = "\n", comment.char = "#")
+	dirdats <- scan(file = "directories.for.cops.dat", "", sep = "\n", comment.char = "#")
 	for(dirdat in dirdats) {
 		if(!file.exists(file.path(dirdat, list.files(dirdat, pattern = "CAST")[1]))) {
 			cat(dirdat, "> No cast\n")
 			next()
 		}
-		cast <- fread(file=file.path(dirdat, list.files(dirdat, pattern = "CAST")[1]))
+		cast <- fread(file=file.path(dirdat, list.files(dirdat, pattern = "CAST")[1]), skip = "End of Header")
 
 		instruments.optics <- unique(str_extract(str_subset(names(cast), "^[:alnum:]{2,}(?=\\d{3})"), "^[:alnum:]{2,}(?=\\d{3})"))
 		tiltmax.optics <- c(10,5,5,5)[0:length(instruments.optics)]

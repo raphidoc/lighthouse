@@ -1,6 +1,6 @@
 Package: lighthouse
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Database management and processing workflow for ocean optics science 
 Version: 0.1.0
 Author: Raphael Mabit
 Maintainer: Raphael Mabit <raphael.mabit@gmail.com>
@@ -9,7 +9,9 @@ Description: More about what it does (maybe more than one line)
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-Imports: 
+Imports:
     data.table,
-    tidyverse
-    
+    dplyr,
+    stringr,
+    lubridate,
+    DBI

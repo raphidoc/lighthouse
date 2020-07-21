@@ -1,11 +1,10 @@
 # Function to generate SQL databases from the L3 of a project
 # locally a sqlite (minimum) remotely on PostgreSQL (optional, not implemented yet)
 
-library(lubridate)
-library(data.table)
-library(DBI)
-library(Cops)
-library(tidyverse)
+#library(lubridate)
+#library(data.table)
+#library(DBI)
+#library(tidyverse)
 
 Gen.SQL.DB <- function(ppath="/mnt/D/Data/Chone", overw=F) {
 
@@ -87,32 +86,36 @@ Gen.SQL.DB <- function(ppath="/mnt/D/Data/Chone", overw=F) {
 	colnames(Rrs_sd) <- c("ID", paste0("Rrs_sd_",COPS.DB$waves))
 	dbWriteTable(con, "Rrs_sd", Rrs_sd, overwrite = overw)
 
-	#LwN <- data.table(ID=COPS.DB$stationID, LwN=COPS.DB$nLw.m)
-	#colnames(LwN) <- c("ID", paste0("LwN_",COPS.DB$waves))
-	#dbWriteTable(con, "LwN", LwN)
+	nLw <- data.table(ID=COPS.DB$stationID, LwN=COPS.DB$nLw.m)
+	colnames(nLw) <- c("ID", paste0("nLw_",COPS.DB$waves))
+	dbWriteTable(con, "nLw", nLw, overwrite = overw)
 
-	Kd_1p <- data.table(ID=COPS.DB$stationID, Kd1p=COPS.DB$Kd.1p.m)
-	colnames(Kd_1p) <- c("ID", paste0("Kd_1p_",COPS.DB$waves))
-	dbWriteTable(con, "Kd_1p", Kd_1p, overwrite = overw)
+	nLw_sd <- data.table(ID=COPS.DB$stationID, LwN=COPS.DB$nLw.sd)
+	colnames(nLw_sd) <- c("ID", paste0("nLw_sd_",COPS.DB$waves))
+	dbWriteTable(con, "nLw_sd", nLw_sd, overwrite = overw)
 
-	Kd_1p_sd <- data.table(ID=COPS.DB$stationID, Kd1p=COPS.DB$Kd.1p.sd)
-	colnames(Kd_1p_sd) <- c("ID", paste0("Kd_1p_sd",COPS.DB$waves))
-	dbWriteTable(con, "Kd_1p_sd", Kd_1p_sd, overwrite = overw)
+	Kd1p <- data.table(ID=COPS.DB$stationID, Kd1p=COPS.DB$Kd.1p.m)
+	colnames(Kd1p) <- c("ID", paste0("Kd1p_",COPS.DB$waves))
+	dbWriteTable(con, "Kd1p", Kd1p, overwrite = overw)
 
-	Kd_10p <- data.table(ID=COPS.DB$stationID, Kd10p=COPS.DB$Kd.10p.m)
-	colnames(Kd_10p) <- c("ID", paste0("Kd_10p",COPS.DB$waves))
-	dbWriteTable(con, "Kd_10p", Kd_10p, overwrite = overw)
+	Kd1p_sd <- data.table(ID=COPS.DB$stationID, Kd1p=COPS.DB$Kd.1p.sd)
+	colnames(Kd1p_sd) <- c("ID", paste0("Kd1p_sd_",COPS.DB$waves))
+	dbWriteTable(con, "Kd1p_sd", Kd1p_sd, overwrite = overw)
 
-	Kd_10p_sd <- data.table(ID=COPS.DB$stationID, Kd10p=COPS.DB$Kd.10p.sd)
-	colnames(Kd_10p_sd) <- c("ID", paste0("Kd_10p_sd",COPS.DB$waves))
-	dbWriteTable(con, "Kd_10p_sd", Kd_10p_sd, overwrite = overw)
+	Kd10p <- data.table(ID=COPS.DB$stationID, Kd10p=COPS.DB$Kd.10p.m)
+	colnames(Kd10p) <- c("ID", paste0("Kd10p_",COPS.DB$waves))
+	dbWriteTable(con, "Kd10p", Kd10p, overwrite = overw)
+
+	Kd10p_sd <- data.table(ID=COPS.DB$stationID, Kd10p=COPS.DB$Kd.10p.sd)
+	colnames(Kd10p_sd) <- c("ID", paste0("Kd10p_sd_",COPS.DB$waves))
+	dbWriteTable(con, "Kd10p_sd", Kd10p_sd, overwrite = overw)
 
 	Ed0 <- data.table(ID=COPS.DB$stationID, Ed0=COPS.DB$Ed0.0p.m)
 	colnames(Ed0) <- c("ID", paste0("Ed0_",COPS.DB$waves))
 	dbWriteTable(con, "Ed0", Ed0, overwrite = overw)
 
 	Ed0_sd <- data.table(ID=COPS.DB$stationID, Ed0=COPS.DB$Ed0.0p.sd)
-	colnames(Ed0_sd) <- c("ID", paste0("Ed0__sd",COPS.DB$waves))
+	colnames(Ed0_sd) <- c("ID", paste0("Ed0_sd",COPS.DB$waves))
 	dbWriteTable(con, "Ed0_sd", Ed0_sd, overwrite = overw)
 
 	Ed0_f_diff <- data.table(ID=COPS.DB$stationID, Ed0=COPS.DB$Ed0.f.diff)

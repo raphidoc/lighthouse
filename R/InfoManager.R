@@ -1,5 +1,5 @@
 #Modify Info file based on directories.for.Cops (to be be changed, as sys.getenv)
-library(data.table)
+#library(data.table)
 
 
 Info.Manager <- function(chfield= "", to= "", mindate, maxdate){
@@ -9,6 +9,8 @@ Info.Manager <- function(chfield= "", to= "", mindate, maxdate){
   to <- as.character(to)
   print(chfield)
   print(to)
+
+  if (Sys.getenv("R_COPS_DATA_DIR") == ""){stop("R_COPS_DATA_DIR is not set")}
 
   header.info.file <- paste(Sys.getenv("R_COPS_DATA_DIR"), "info.header.dat", sep = "/")
   dirdats <- scan(file = "directories.for.cops.dat", "", sep = "\n", comment.char = "#")
@@ -20,7 +22,7 @@ Info.Manager <- function(chfield= "", to= "", mindate, maxdate){
     }
     print(paste0("PROCESSING DIRECTORY:", dirdat))
 
-    #look if absorption file empty
+    #look if absorption file empty, if so go to next iteration
     if(chfield=="chl" && to == "0"){
       abs.tab <- fread(file= paste(dirdat, "absorption.cops.dat", sep = "/"), header= T)
       if(abs.tab[[2]][1] == "a1"){

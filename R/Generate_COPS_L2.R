@@ -1,3 +1,9 @@
+#' @export
+#' @import dplyr
+#' @import lubridate
+#' @import stringr
+#'
+
 #TO DO : Create a report of coherence between Casts in L1 and LogTable
 
 #Function to generate L2 COPS architecture from L1 and and a log table (ASCII)
@@ -8,21 +14,32 @@
 #library(lubridate)
 
 
-project <- "/home/raphael/TEST"
-setwd(project)
+#project <- "/home/raphael/TEST"
+#setwd(project)
 
-Generate.COPS.L2 <- function(project = getwd()){
+Generate.COPS.L2 <- function(project){
+
 
 	# set L1 and L2 absolute path
 	L1 = file.path(project,"L1","COPS")
 	L2 <- file.path(project, "L2")
 
+	# Check project before doing any manipulation
+	CheckList <- Check.project(project,L1,L2,param="COPS")
+
+	if (CheckList["Proot"][[1]] == F) {stop("project path is not set at a project root folder")}
+	if (CheckList["L2exists"][[1]] == T) {
+	stop("L2 structure for COPS is alredy present. You better be sure of what your doing ...\n
+		take care of this by yourself !")}
+
 	# Read LogTable file
-	LogTable = file.path(project, list.files(pattern = "data_synthesis"))
+	LogTable = list.files(path = project, pattern = "data_synthesis|Data_Synthesis", full.names = T)
 
-	LogTable <- fread(LogTable, data.table = F)
+	LogTable <- data.table::fread(LogTable, data.table = F)
 
-	if (any(names(LogTable) == "Boat")) {
+	# Check if multiple boat where present
+	if (any(names(LogTable) == "Boat") & length(unique(LogTable["Boat"][[1]])) > 1) {
+
 		# Merge potential multiple COPS into one column (boolean)
 		if (length(grep("COPS",names(LogTable))) > 1){
 			COPS <- cbind(ifelse(LogTable[grep("COPS",names(LogTable))] == "T", T,F),
@@ -84,7 +101,6 @@ Generate.COPS.L2 <- function(project = getwd()){
 		for(i in 1:length(L1Table[,1])){
 			if(any(L1Table$DateTime[i] %within% CopsTable$inters & L1Table$Boat[i] == CopsTable$Boat)){
 				IDlist[i] <- CopsTable$StationID[which(L1Table$DateTime[i] %within% CopsTable$inters & L1Table$Boat[i] == CopsTable$Boat)]
-
 			}
 			else{
 				IDlist[i] <- NA
@@ -94,12 +110,12 @@ Generate.COPS.L2 <- function(project = getwd()){
 
 		#Create L2 structure
 		L2COPS <- file.path(L2, paste0(gsub("-", "", as.character(lubridate::date(CopsTable$DateTime))),
-									 "_Station", CopsTable$StationID),CopsTable$Boat,"COPS")
+									 "_Station", CopsTable$StationID),paste0("COPS_",CopsTable$Boat))
 		for(i in L2COPS){
 			dir.create(i, recursive = T)
-			write(i, file = file.path(i, "directories.for.COPS.dat"))
+			write(i, file = file.path(i, "directories.for.cops.dat"))
 		}
-		write(L2COPS, file = file.path(L2, "directories.for.COPS.dat"))
+		write(L2COPS, file = file.path(L2, "directories.for.cops.dat"))
 		#return(dirdats = file.path(L2, "directories.for.COPS.dat"))
 
 		#Copy GPS file in each station
@@ -109,7 +125,7 @@ Generate.COPS.L2 <- function(project = getwd()){
 		#create L2path for each matched cast and copy
 		L1Table <- L1Table %>% filter(StationID != "NA") %>%
 			mutate(L2path = file.path(L2, paste0(gsub("-", "", as.character(lubridate::date(DateTime))),
-											"_Station", StationID),Boat,"COPS", Name))
+											"_Station", StationID),paste0("COPS_",Boat), Name))
 
 		L1files <- as.character(L1Table$L1path)
 		L2path <- L1Table$L2path

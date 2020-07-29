@@ -1,3 +1,8 @@
+#' @export
+#'
+#'
+#'
+
 DirDat <- function(path=getwd(), what=c("COPS","IOP"), boat=c(""), upInDir=T){
 	# fuction to create directories.for.*.dat
 	# path is the path
@@ -7,7 +12,7 @@ DirDat <- function(path=getwd(), what=c("COPS","IOP"), boat=c(""), upInDir=T){
 			file.remove(paste0("directories.for.",tolower(what[i]),".dat"))
 		}
 
-		fileConn <- file(paste0("directories.for.",tolower(what[i]),".dat"))
+		fileConn <- file(file.path(path,paste0("directories.for.",tolower(what[i]),".dat")))
 		dirs <- grep(stringr::str_c("/",what[i],"(_[[:alpha:]]+)?$"),list.dirs(path), value = T)
 
 		if (boat != "") {

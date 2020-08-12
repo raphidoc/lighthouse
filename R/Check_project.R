@@ -5,14 +5,18 @@ Check.project <- function(project, L1, L2, param = ""){
 	Pobjects <- list.files(project, recursive = F, full.names = T)
 
 	# Check if project path is trully a project folder root
-	if (dir.exists(L1) &
-	    file.exists(grep("data_synthesis|Data_Synthesis", Pobjects, value = T))) {
+	if (exists("L1") & dir.exists(L1)) {
+
+		Proot <- T
+	} else { Proot <- F }
+
+	if (file.exists(grep("data_synthesis|Data_Synthesis", Pobjects, value = T))) {
 
 		Proot <- T
 	} else { Proot <- F }
 
 	# Check if L2 exist (for param) and is not empty
-	if (dir.exists(L2) &
+	if (exists(c("L2","param")) & dir.exists(L2) &
 	    length(dir(L2, pattern = param, recursive = T ,include.dirs = T)) != 0) {
 
 		L2exist <- T

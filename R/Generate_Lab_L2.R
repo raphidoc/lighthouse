@@ -34,21 +34,21 @@ Generate.Lab.L2 <- function(project, Var = c("Ag","Ap")) {
 			take care of this by yourself !")}
 
 	# Read Lab sampling log
-	LabLog <- data.table::fread(list.files(path = L1, pattern = "Lab_Log", full.names = T),
+	LabLog <- list.files(path = L1, pattern = "Lab_Log", full.names = T)
+	LabLog <- data.table::fread(file = LabLog,
 				colClasses = c(ID = "character"),
 				data.table = F)
 
 	if (any(str_detect(Var, "Ag"))){
 
-		# Read Ag_Log file
-		#AgLog <- fread(file.path(getwd(),list.files(pattern = "Ag_log", recursive = T)),
-					#colClasses = c(ID = "character"),
-					#data.table = F)
-
 		# Match sample ID, station name along with L1path
-		AgFiles <- list.files(path = file.path(L1,"Ag","RData"), "*.RData", full.names = T)
+		AgFiles <- list.files(path = file.path(L1,"Ag","RData"), "[[:digit:]]{3}([[:alpha:]])?.RData", full.names = T)
 
-		AgLog <- LabLog %>% mutate(L1path = AgFiles)
+		AgLog <- data.frame(L1path = AgFiles)
+		AgLog <- AgLog %>%
+			mutate(ID= str_extract(AgFiles, "(?<=/)[[:digit:]]{3}([[:alpha:]])?(?=.RData)"))
+
+		AgLog <- AgLog %>% left_join(LabLog, by="ID")
 
 		# Create corresponding L2 path
 
@@ -68,13 +68,16 @@ Generate.Lab.L2 <- function(project, Var = c("Ag","Ap")) {
 			dir.create(i, recursive = T)
 		}
 
-		file.copy(AgLog$L1path, AgLog$L2path, recursive = F)
+		file.copy(as.character(AgLog$L1path), as.character(AgLog$L2path), recursive = F)
 	}
 	if (any(str_detect(Var, "Ap"))) {
 		# Match sample ID, station name along with L1path
-		ApFiles <- list.files(path = file.path(L1,"Ap_NAp","RData"), "[[:digit:]]{3}.RData", full.names = T)
+		ApFiles <- list.files(path = file.path(L1,"Ap_nap","RData"), "[[:digit:]]{3}([[:alpha:]])?.RData", full.names = T)
+		ApLog <- data.frame(L1path = ApFiles)
+		ApLog <- ApLog %>%
+			mutate(ID= str_extract(ApFiles, "(?<=/)[[:digit:]]{3}([[:alpha:]])?(?=.RData)"))
 
-		ApLog <- LabLog %>% mutate(L1path = ApFiles)
+		ApLog <- ApLog %>% left_join(LabLog, by="ID")
 
 		# Create corresponding L2 path
 
@@ -94,6 +97,6 @@ Generate.Lab.L2 <- function(project, Var = c("Ag","Ap")) {
 			dir.create(i, recursive = T)
 		}
 
-		file.copy(ApLog$L1path, ApLog$L2path, recursive = F)
+		file.copy(as.character(ApLog$L1path), as.character(ApLog$L2path), recursive = F)
 	}
 }

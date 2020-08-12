@@ -4,7 +4,7 @@
 #' @import stringr
 #'
 
-#TO DO : Create a report of coherence between Casts in L1 and LogTable
+#TO DO : Create a report of coherence between Casts in L1 and Synthesis
 
 #Function to generate L2 COPS architecture from L1 and and a log table (ASCII)
 
@@ -32,24 +32,24 @@ Generate.COPS.L2 <- function(project){
 	stop("L2 structure for COPS is alredy present. You better be sure of what your doing ...\n
 		take care of this by yourself !")}
 
-	# Read LogTable file
-	LogTable = list.files(path = project, pattern = "data_synthesis|Data_Synthesis", full.names = T)
+	# Read data_synthesis file
+	Synthesis = list.files(path = project, pattern = "data_synthesis|Data_Synthesis", full.names = T)
 
-	LogTable <- data.table::fread(LogTable, data.table = F)
+	Synthesis <- data.table::fread(Synthesis, data.table = F)
 
 	# Check if multiple boat where present
-	if (any(names(LogTable) == "Boat") & length(unique(LogTable["Boat"][[1]])) > 1) {
+	if (any(names(Synthesis) == "Boat") && length(unique(Synthesis["Boat"][[1]])) > 1) {
 
 		# Merge potential multiple COPS into one column (boolean)
-		if (length(grep("COPS",names(LogTable))) > 1){
-			COPS <- cbind(ifelse(LogTable[grep("COPS",names(LogTable))] == "T", T,F),
-					    rowSums(ifelse(LogTable[grep("COPS",names(LogTable))] == "T", T,F)) > 0)
+		if (length(grep("COPS",names(Synthesis))) > 1){
+			COPS <- cbind(ifelse(Synthesis[grep("COPS",names(Synthesis))] == "T", T,F),
+					    rowSums(ifelse(Synthesis[grep("COPS",names(Synthesis))] == "T", T,F)) > 0)
 
-			LogTable <- LogTable %>% mutate(COPS = COPS[,3])
+			Synthesis <- Synthesis %>% mutate(COPS = COPS[,3])
 		}
 
 		# Filter time search, done only for TRUE COPS station
-		CopsTable <- LogTable %>% filter(COPS == T) %>%
+		CopsTable <- Synthesis %>% filter(COPS == T) %>%
 			mutate(DateTime = ymd_hm(paste(Date, Time, sep = "T"))) %>%
 			select(StationID, Boat, DateTime, Lat, Long, COPS)
 
@@ -136,6 +136,6 @@ Generate.COPS.L2 <- function(project){
 		#cat(paste0("Station : ",CopsTable$StationID,"\n"), file = report , append = F)
 		#cat(paste0("Number of COPS copied = "), file = report , append = T)
 	} else {
-		print("To be implemented")
+		message("To be implemented")
 	}
 }

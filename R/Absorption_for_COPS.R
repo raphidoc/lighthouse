@@ -67,17 +67,17 @@ Absorption.for.COPS <- function(project){
 
   	tryCatch(
   	  expr = {
-  	    compute.discrete.aTOT.for.COPS(cops.path = as.character(Batch$Pcops[i]),
+  	    RspectroAbs::compute.discrete.aTOT.for.COPS(cops.path = as.character(Batch$Pcops[i]),
   	                                   ag.RData = as.character(Batch$PAg[i]),
   	                                   ap.RData = as.character(Batch$PAp[i]))
   	    message("Succes \\o/ \n")
   	  },
   	  error = function(e){
-  	    message("Failure (error) /o\\")
-  	    message(e)
+  	    message("error:")
+  	    message(e,"\n")
   	  },
   	  warning = function(w){
-  	    message("Failure (warning) /o\\")
+  	    message("warning:")
   	    message(w,"\n")
   	    }
   	)

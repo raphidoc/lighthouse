@@ -9,7 +9,7 @@
 Info.Manager <- function(project, field= "", to= "", mindate= "yyyy-mm-dd", maxdate="yyyy-mm-dd", Boat=c("")) {
 
   L2 <- file.path(project, "L2")
-  Pcops = grep("/COPS(_[[:alpha:]]+)?$",list.dirs(L2), value = T)
+  dirs = grep("/COPS(_[[:alpha:]]+)?$",list.dirs(L2), value = T)
   #dirdats <- scan(file = "directories.for.cops.dat", "", sep = "\n", comment.char = "#")
 
   # create a filter based on date
@@ -30,12 +30,12 @@ Only the following are accepted: lat, lon, chl, timwin, ssrm, tiltm, smoo")
 
   header.info.file <- file.path(Sys.getenv("R_COPS_DATA_DIR"), "info.header.dat")
 
-  for(i in Pcops) {
+  for(i in dirs) {
     if(!file.exists(i)) {
         cat(i, "does not exist")
         next()
     }
-    # message(paste0("PROCESSING DIRECTORY:", Pcops))
+    # message(paste0("PROCESSING DIRECTORY:", dirs))
 
     #look if absorption file empty, if so go to next iteration
     if(field=="chl" && to == "0"){

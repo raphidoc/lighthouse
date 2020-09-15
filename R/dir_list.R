@@ -22,7 +22,7 @@ dirlist <- function(path=getwd(), what=c("COPS","IOP"), boat=c(""), upInDir=T){
 		if(upInDir==T){
 			for (i2 in seq_along(dirs)) {
 				write(dirs[i2], file = file.path(dirs, paste0("directories.for.",tolower(what[i]),".dat"))[i2])
-				message(paste(what[i], " directory :", str_extract(dirs[i2], "(?<=Station).*(?=/)")))
+				#message(paste(what[i], " directory :", str_extract(dirs[i2], "(?<=Station).*(?=/)")))
 			}
 			message(paste(what[i], " = ", length(dirs)))
 		}

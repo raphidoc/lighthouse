@@ -3,7 +3,7 @@
 #'
 #'
 
-dirlist <- function(path=getwd(), what=c("COPS","IOP"), boat=c(""), upInDir=T){
+l2_dir_list <- function(path=getwd(), what=c("COPS","IOP"), boat=c(""), upInDir=T){
 	# fuction to create directories.for.*.dat
 	# path is the path
 

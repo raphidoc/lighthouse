@@ -17,7 +17,7 @@
 #project <- "/home/raphael/TEST"
 #setwd(project)
 
-Generate.COPS.L2 <- function(project){
+generate_cops_L2 <- function(project){
 
 
 	# set L1 and L2 absolute path
@@ -50,8 +50,6 @@ Generate.COPS.L2 <- function(project){
 	} else if (typeof(Synthesis$ID) == "integer") {
 		Synthesis <- Synthesis %>% mutate(ID = stringr::str_pad(ID, 3, pad="0"))
 
-	} else if (#check ID format) {
-
 	} else {
 		stop("ID column is present but is not of type integer !")
 	}
@@ -80,12 +78,19 @@ Generate.COPS.L2 <- function(project){
 
 		IDlist <- c()
 		for(i in 1:length(CopsTable[,1])){
-			if(any(lubridate::date(CopsTable$DateTime)[i] == GPSTable$Date & CopsTable$Boat[i] == GPSTable$Boat)){
-				IDlist[i] <- GPSTable$Path[which(lubridate::date(CopsTable$DateTime)[i] == GPSTable$Date & CopsTable$Boat[i] == GPSTable$Boat)]
+			if(any(lubridate::date(CopsTable$DateTime)[i] == GPSTable$Date)){
+				GPSfiles <- GPSTable$Path[which(lubridate::date(CopsTable$DateTime)[i] == GPSTable$Date)]
 
+				if(length(GPSfiles) == 1 && str_detect(GPSfiles, ".csv")){
+					IDlist[i] <- GPSfiles[str_detect(GPSfiles, ".csv")]
+
+				} else if(length(GPSfiles) > 1 && file.exists(GPSfiles[str_detect(GPSfiles, ".csv")])){
+					IDlist[i] <- GPSfiles[str_detect(GPSfiles, ".csv")]
+				}
 			}
 			else{
 				IDlist[i] <- NA
+				message(CopsTable$ID[i],"no .csv GPS file")
 			}
 		}
 		CopsTable <- CopsTable %>% mutate(GPS = IDlist)
@@ -162,11 +167,18 @@ Generate.COPS.L2 <- function(project){
 		IDlist <- c()
 		for(i in 1:length(CopsTable[,1])){
 			if(any(lubridate::date(CopsTable$DateTime)[i] == GPSTable$Date)){
-				IDlist[i] <- GPSTable$Path[which(lubridate::date(CopsTable$DateTime)[i] == GPSTable$Date)]
+				GPSfiles <- GPSTable$Path[which(lubridate::date(CopsTable$DateTime)[i] == GPSTable$Date)]
 
+				if(length(GPSfiles) == 1 && str_detect(GPSfiles, ".csv")){
+					IDlist[i] <- GPSfiles[str_detect(GPSfiles, ".csv")]
+
+				} else if(length(GPSfiles) > 1 && file.exists(GPSfiles[str_detect(GPSfiles, ".csv")])){
+					IDlist[i] <- GPSfiles[str_detect(GPSfiles, ".csv")]
+				}
 			}
 			else{
 				IDlist[i] <- NA
+				message(CopsTable$ID[i],"no .csv GPS file")
 			}
 		}
 		CopsTable <- CopsTable %>% mutate(GPS = IDlist)
@@ -189,13 +201,13 @@ Generate.COPS.L2 <- function(project){
 		IDlist <- list()
 		for(i in 1:length(L1Table[,1])){
 			if(any(L1Table$DateTime[i] %within% CopsTable$inters)){
-				IDlist[i] <- CopsTable$Station[which(L1Table$DateTime[i] %within% CopsTable$inters)]
+				IDlist[i] <- CopsTable$ID[which(L1Table$DateTime[i] %within% CopsTable$inters)]
 			}
 			else{
 				IDlist[i] <- NA
 			}
 		}
-		L1Table <- L1Table %>% mutate(StationID = IDlist)
+		L1Table <- L1Table %>% mutate(ID = IDlist)
 
 		# Create L2 structure
 		L2COPS <- file.path(L2, str_pad(CopsTable$ID, 3, pad="0"), "COPS")
@@ -212,17 +224,12 @@ Generate.COPS.L2 <- function(project){
 		file.copy(CopsTable$GPS, file.path(CopsTable$L2path, str_extract(CopsTable$GPS, "GPS_[:digit:]{6}\\.[:alpha:]{3}")))
 
 		# Create L2path for each matched cast and copy
-		L1Table <- L1Table %>% filter(StationID != "NA") %>%
-			mutate(L2path = file.path(L2, CopsTable$ID,"COPS", Name))
+		L1Table <- L1Table %>% filter(ID != "NA") %>%
+			mutate(L2path = file.path(L2, ID,"COPS", Name))
 
 		L1files <- as.character(L1Table$L1path)
 		L2path <- L1Table$L2path
 		file.copy(L1files, L2path, overwrite = F)
-
-		#
-
-
-		message("To be implemented")
 	}
 }
 

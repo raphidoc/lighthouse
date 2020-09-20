@@ -3,6 +3,8 @@
 export(Absorption.for.COPS)
 export(Generate.Lab.L2)
 export(Info.Manager)
+export(check_l3)
+export(check_project)
 export(generate_cops_L2)
 export(l2_dir_list)
 import(Cops)

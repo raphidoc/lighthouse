@@ -3,7 +3,7 @@
 #library(data.table)
 #library(tidyverse)
 
-cops_init.R <- function(dirdats){
+Cops.init.R <- function(dirdats){
 
 	#str_subset(init.file, "#", negate = T)
 

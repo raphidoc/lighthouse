@@ -19,7 +19,7 @@
 #project <- "/home/raphael/TEST"
 #setwd(project)
 
-generate_lab_l2 <- function(project, Var = c("Ag","Ap")) {
+Generate.Lab.L2 <- function(project, Var = c("Ag","Ap")) {
 
 	# Set L1 and L2 absolute path
 	L1 = file.path(project,"L1","Lab")

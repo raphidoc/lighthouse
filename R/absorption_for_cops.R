@@ -1,14 +1,8 @@
+#' @export
 #' @import dplyr
 #' @import Riops
 #' @import RspectroAbs
 #' @import stringr
-#'
-#' @author Raphael Mabit
-#'
-#' @description Batch processing for absorption.cops.dat file using RspectroAbs function.
-#' WARNING : Need to be adapted to work with unique numeric ID in L2 !
-#'
-#' @export
 
 #Fuction wich match all Cops Station with avalible cdom and particular measured absorption
 #Dependancies: function compute.discrete.aTOT.for.COPS from Rspectro abs library
@@ -16,7 +10,11 @@
 #project <- "/home/raphael/TEST"
 #setwd(project)
 
-absorption_for_cops <- function(project){
+Absorption.for.COPS <- function(project){
+
+  # Initiate log for tool report,  append new section
+  #report <- file(file.path(project,"Absorption_for_COPS.log"))
+  #cat(paste0("\nSTART:",Sys.time(),"\n"), file = report, append = T)
 
   L2 <- file.path(project, "L2")
 

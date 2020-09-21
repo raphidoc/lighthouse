@@ -10,14 +10,9 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Imports:
-    asd,
-    Cops,
     data.table,
     DBI,
     dplyr,
-    HyperocR,
-    RspectroAbs,
-    Riops,
     stringr,
     lubridate,
 RoxygenNote: 7.1.0

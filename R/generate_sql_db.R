@@ -6,7 +6,7 @@
 #library(DBI)
 #library(tidyverse)
 
-Gen.SQL.DB <- function(ppath="/mnt/D/Data/Chone", overw=F) {
+generate_sql_db <- function(ppath="/mnt/D/Data/Chone", overw=F) {
 
 	setwd(ppath)
 	if (!dir.exists("./L3")) stop("No L3 directory in project ", last(last(str_split(ppath, "/"))))

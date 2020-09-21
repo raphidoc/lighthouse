@@ -6,7 +6,7 @@
 
 #library(data.table)
 
-Info.Manager <- function(project, field= "", to= "", mindate= "yyyy-mm-dd", maxdate="yyyy-mm-dd", Boat=c("")) {
+info_manager <- function(project, field= "", to= "", mindate= "yyyy-mm-dd", maxdate="yyyy-mm-dd", Boat=c("")) {
 
   L2 <- file.path(project, "L2")
   dirs = grep("/COPS(_[[:alpha:]]+)?$",list.dirs(L2), value = T)

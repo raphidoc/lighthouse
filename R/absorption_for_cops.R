@@ -10,7 +10,7 @@
 #project <- "/home/raphael/TEST"
 #setwd(project)
 
-Absorption.for.COPS <- function(project){
+absorption_for_cops <- function(project){
 
   # Initiate log for tool report,  append new section
   #report <- file(file.path(project,"Absorption_for_COPS.log"))

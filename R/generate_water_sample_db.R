@@ -1,0 +1,290 @@
+#' @name generate_spm_db
+#' @title generate_spm_db
+#' @author Raphael Mabit
+#'
+#' @description Generate a data base (one file by parameter) from L1 water sample files.
+#' Different methods are aplicated depending on the type of parameter.
+#' For Ag and Ap parameter, it takes the output of RspectroAbs package.
+#' For SPM (Chl-a to be implemented) it read a .csv such as "link to example table"
+#'
+#' @param project The top level folder of the project
+#'
+#' @param mission Optional, name for data base file.
+#' If none is providen, it is taken from the project name.
+#'
+#' @param  params Character vector used to select for which parameters data bases should be created
+#'
+#' @import dplyr
+#' @import stringr
+#' @export
+#'
+
+l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap")) {
+
+
+# Setup -------------------------------------------------------------------
+
+	if (!exists("mission") || mission == "" ) {
+		mission <- str_split(project,"/")[[1]]
+		mission <- mission[length(mission)]
+		message("mission name empty, taking name of the project: ",mission)
+	}
+
+	L1 <- file.path(project,"L1")
+	L3 <- file.path(project,"L3","WaterSample")
+
+	CheckList <-lighthouse::check_project(project, L1)
+	if (CheckList["Proot"][[1]] == F) {stop(project,"is not a project root folder")}
+
+	LogFile <- list.files(file.path(L1,"WaterSample"),pattern = "water_sample_log", full.names = T)
+
+	LabLog <- data.table::fread(LogFile, colClasses = "character", data.table = F)
+
+	handyParams <- list.dirs(file.path(L1,"WaterSample"), recursive = F ,full.names = F)
+
+
+# SPM ---------------------------------------------------------------------
+
+	if (any(str_detect(params, "SPM")) && any(str_detect(handyParams, "^SPM$"))) {
+
+		SPMfile <- list.files(file.path(L1,"WaterSample","SPM"), pattern = "*SPM*.csv$", full.names = T)
+
+		if (SPMfile > 1) {
+			stop("Multiple SPM files foud: \n", SPMfile)
+		} else if (length(SPMfile) == 0) {
+			stop("No SPM file found, name must contain 'SPM' and end with '.csv'")
+		} else {
+			SPM_data <- data.table::fread(SPMfile, colClasses = "character", data.table = F)
+		}
+
+		# units detector to be extended
+		handyUnit <- paste0("(?<=_)(mg|ml)$")
+
+		SPMunits <- unique(na.omit(str_extract(names(SPM_data), handyUnit)))
+
+		if (length(SPMunits) < 2) {
+			weightUnit <- readline("missing units to calculate SPM, enter a unit for weight :")
+			volUnit <- readline("missing units to calculate SPM, enter a unit for volume :")
+		} else if (length(SPMunits) > 2) {
+			stop("Too many units detected: ",SPMunits)
+		} else {
+			weightUnit <- na.omit(str_extract(SPMunits, "mg"))
+			volUnit <- na.omit(str_extract(SPMunits, "ml"))
+			names(SPM_data) <- str_remove(names(SPM_data), "_(mg|ml)")
+		}
+
+		if (all(weightUnit != c("mg"))) {
+			stop(weightUnit,", not implemented")
+		}
+		if (all(volUnit != c("ml"))) {
+			stop(volUnit,", not implemented")
+		}
+
+		# Calculate SPM, PIM and POM for replicates, in [mg.L-1]
+
+		SPM_tbl <- SPM_data %>% select(ID_Sample, V, Wbase, Wdry, Wburn) %>%
+			mutate(V = as.numeric(V), Wbase = as.numeric(Wbase), Wdry = as.numeric(Wdry), Wburn= as.numeric(Wburn) ) %>%
+			mutate(SPM = ((Wdry - Wbase) / V)*1000,
+				  PIM = SPM-(Wdry-Wburn),
+				  POM = SPM-PIM)
+
+		SPM_nest <- SPM_tbl %>% select(ID_Sample, SPM, PIM, POM) %>% group_by(ID_Sample) %>% tidyr::nest()
+
+		SPMs <- SPM_nest %>% mutate(SPM= purrr::map_dbl(.x = data, ~ median(.x$SPM, na.rm = T)),
+							   PIM= purrr::map_dbl(.x = data, ~ median(.x$PIM, na.rm = T)),
+							   POM= purrr::map_dbl(.x = data, ~ median(.x$POM, na.rm = T)))
+
+		SPMs <- SPMs %>% mutate(SPM= as.numeric(sprintf(SPM, fmt = '%#.2f')),
+						    PIM= as.numeric(sprintf(PIM, fmt = '%#.2f')),
+						    POM= as.numeric(sprintf(POM, fmt = '%#.2f'))) %>%
+			select(!data)
+
+		# SPMs_table <- data.table::data.table(SPM_tbl)
+		# SPMs_stats <- data.table::setDT(SPMs_table)[,list(SPM_Mean=mean(SPM),
+		# 							  SPM_Max=max(SPM),
+		# 							  SPM_Min=min(SPM),
+		# 							  SPM_Median=as.numeric(median(SPM)),
+		# 							  SPM_Std=sd(SPM),
+		# 							  PIM_Mean=mean(PIM),
+		# 							  PIM_Max=max(PIM),
+		# 							  PIM_Min=min(PIM),
+		# 							  PIM_Median=as.numeric(median(PIM)),
+		# 							  PIM_Std=sd(PIM),
+		# 							  POM_Mean=mean(POM),
+		# 							  POM_Max=max(POM),
+		# 							  POM_Min=min(POM),
+		# 							  POM_Median=as.numeric(median(POM)),
+		# 							  POM_Std=sd(POM)), by=ID_Sample]
+
+		# Significant digit formating this way could be great !
+		# SPMs_Stats %>% group_by(ID_Sample) %>% tidyr::nest() %>%
+		# 	purrr::map_dbl(. = data , ~ as.numeric(sprintf(., fmt = '%#.2f')))
+
+		lighthouse::check_l3(project, L3, set="SPM")
+		readr::write_csv(SPMs,
+					  path = file.path(L3,"SPM",
+					  			  paste0("SPMs_DB_",Sys.Date(),"_",mission,".csv")))
+
+		# readr::write_csv(SPMs_stats,
+		# 			  path = file.path(L3,"SPM",
+		# 			  			  paste0("SPMs_stats_DB_",Sys.Date(),"_",mission,".csv")))
+
+		readr::write_csv(SPM_tbl,
+					  path = file.path(L3,"SPM",
+					  			  paste0("SPMs_table_DB_",Sys.Date(),"_",mission,".csv")))
+
+
+	} else if (any(str_detect(params, "SPM")) && !any(str_detect(HandyParams, "^SPM$"))) {
+		warning("SPM data base requested but no 'SPM' folder found under WaterSample, skiping.\n")
+	}
+
+
+# Ag ----------------------------------------------------------------------
+
+
+
+	if (any(str_detect(params, "Ag")) && any(str_detect(handyParams, "^Ag$"))) {
+		DataFolder <- file.path(L1,"WaterSample","Ag","RData")
+		if (!dir.exists(DataFolder)) {stop("folder ", DataFolder," does not exist")}
+
+		DataFiles <- list.files(DataFolder, pattern = ".RData$", full.names = T)
+
+		Ag_table <- data.frame()
+
+		for (i in seq_along(DataFiles)){
+			load(DataFiles[i])
+
+			ID <- Ag$ID
+			wl <- Ag$Lambda
+			Agdata <- Ag$Ag
+
+			temp <- data.frame(ID,t(Agdata))
+			names(temp) <- c("ID",wl)
+
+			if(check_wl_consistency(Ag_table, temp, DataFiles, i)) {next()}
+
+
+			Ag_table <- rbind(Ag_table, temp)
+
+		}
+
+		lighthouse::check_l3(project, L3, set="Ag")
+		readr::write_csv(Ag_table,
+					  path = file.path(L3,"Ag",
+					  			  paste0("Ag_DB_",Sys.Date(),"_",mission,".csv")))
+
+	} else if (any(str_detect(params, "Ag")) && !any(str_detect(HandyParams, "^Ag$"))) {
+		warning("Ag data base requested but no 'Ag' folder found under WaterSample, skiping.\n")
+	}
+
+
+# Ap ----------------------------------------------------------------------
+
+	if (any(str_detect(params, "Ap")) && any(str_detect(handyParams, "^Ap$"))) {
+
+		DataFolder <- file.path(L1,"WaterSample","Ap","RData")
+		if (!dir.exists(DataFolder)) {stop("folder ", DataFolder," does not exist")}
+
+		DataFiles <- list.files(DataFolder, pattern = "[[:digit:]]{3}.RData$", full.names = T)
+
+		# declare empty df to be filed by rowbind
+		Ap_table <- data.frame()
+		Anap_table <- data.frame()
+		Aph_table <- data.frame()
+
+		for (i in seq_along(DataFiles)){
+			load(DataFiles[i])
+
+			# Ap
+			Ap_data <- A$Ap$Ap.Stramski.mean
+
+			if (is.null(Ap_data)) {
+				warning("No Ap data in: ", DataFiles[i],"\n")
+			} else {
+				ID <- A$Ap$ID
+				wl <- A$Ap$Lambda
+
+				temp <- data.frame(ID,t(Ap_data))
+				names(temp) <- c("ID",wl)
+
+				if(check_wl_consistency(Ap_table, temp, DataFiles, i)) {next()}
+
+				Ap_table <- rbind(Ap_table, temp)
+			}
+
+			# Anap
+			Anap_data <- A$Anap$Ap.Stramski.mean
+
+			if (is.null(Anap_data)) {
+				warning("No Anap data in: ", DataFiles[i],"\n")
+			} else {
+				ID <- A$Anap$ID
+				wl <- A$Anap$Lambda
+
+				temp <- data.frame(ID,t(Anap_data))
+				names(temp) <- c("ID",wl)
+
+				if(check_wl_consistency(Anap_table, temp, DataFiles, i)) {next()}
+
+				Anap_table <- rbind(Anap_table, temp)
+			}
+
+
+
+			# Aph no ID and Lambda, take the last available (i.e, Ap or Anap)
+			# ID <- A$Aph.Stramski$ID
+			# wl <- A$Aph.Stramski$Lambda
+
+			Aph_data <- A$Aph.Stramski$Aph
+
+			if (is.null(Aph_data)) {
+				warning("No Aph data in: ", DataFiles[i],"\n")
+			} else {
+				temp <- data.frame(ID,t(Aph_data))
+				names(temp) <- c("ID",wl)
+
+				#if(check_wl_consistency(Aph_data, temp, DataFiles, i)) {next()}
+
+				Aph_table <- rbind(Aph_table, temp)
+			}
+		}
+
+
+
+	} else if (any(str_detect(params, "Ap")) && !any(str_detect(HandyParams, "^Ap$"))) {
+		warning("Ap data base requested but no 'Ap' folder found under WaterSample, skiping.\n")
+	}
+
+	lighthouse::check_l3(project, L3, set="Ap")
+	readr::write_csv(Ap_table,
+				  path = file.path(L3,"Ap",
+				  			  paste0("Ap_DB_",Sys.Date(),"_",mission,".csv")))
+
+	readr::write_csv(Anap_table,
+				  path = file.path(L3,"Ap",
+				  			  paste0("Anap_DB_",Sys.Date(),"_",mission,".csv")))
+
+	readr::write_csv(Aph_table,
+				  path = file.path(L3,"Ap",
+				  			  paste0("Aph_DB_",Sys.Date(),"_",mission,".csv")))
+}
+
+
+check_wl_consistency <- function(df,temp,DataFiles,i) {
+	if (length(names(df)) != 0 && (length(names(df)) != length(names(temp)) ||
+								  names(df) != names(temp))) {
+		warning("Different wavelengths detected between:\n",
+			   DataFiles[i-1],"\nand\n",DataFiles[i],"\n\nSkiping: ",DataFiles[i],"\n")
+		T
+	} else {F}
+
+}
+
+
+#boot_median <- function(d,i) {median(d[i])}
+#
+# test <- SPMstats %>% mutate(booted = purrr::map(.x= data,
+# 									   ~ boot::boot(data = .x$SPM,
+# 									   		   statistic = boot_median,
+# 									   		   R = 1000,
+# 									   		   stype = "i")))

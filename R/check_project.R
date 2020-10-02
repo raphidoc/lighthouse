@@ -10,7 +10,7 @@
 #' @param set The set for which to check.
 #' @export
 
-check_project <- function(project, L1, L2, L3, set = "") {
+check_project <- function(project, L1="", L2="", set="") {
 
 	Pobjects <- list.files(project, recursive = F, full.names = T)
 
@@ -26,7 +26,7 @@ check_project <- function(project, L1, L2, L3, set = "") {
 	} else { Proot <- F }
 
 	# Check if L2 exist (for set) and is not empty
-	if (exists("L2") && exists("set") && dir.exists(L2) &&
+	if (exists("set") && dir.exists(L2) &&
 	    length(dir(L2, pattern = set, recursive = T ,include.dirs = T)) != 0) {
 
 		L2exist <- T

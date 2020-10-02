@@ -16,8 +16,7 @@
 
 #project <- "/home/raphael/TEST"
 #setwd(project)
-
-generate_cops_L2 <- function(project){
+l2_cops_gen <- function(project){
 
 
 	# set L1 and L2 absolute path

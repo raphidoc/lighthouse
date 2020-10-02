@@ -9,7 +9,7 @@
 #' Create in L3 one csv file by instrument and a global html report for all processed variables.
 #' @export
 
-generate_iop_db <- function(project, mission="XXX", boat=c("")){
+l3_iop_gen <- function(project, mission="XXX", boat=c("")){
   #From some reading in https://stackoverflow.com/questions/13649979/what-specifically-are-the-dangers-of-evalparse
   #The method used here should be changed ....
 

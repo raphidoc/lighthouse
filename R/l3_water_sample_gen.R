@@ -1,5 +1,5 @@
-#' @name generate_spm_db
-#' @title generate_spm_db
+#' @name l3_water_sample_gen
+#' @title l3_water_sample_gen
 #' @author Raphael Mabit
 #'
 #' @description Generate a data base (one file by parameter) from L1 water sample files.
@@ -38,6 +38,13 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 
 	LogFile <- list.files(file.path(L1,"WaterSample"),pattern = "water_sample_log", full.names = T)
 
+	if (length(LogFile) == 0) {
+		stop("No water_sample_log found in: ",file.path(L1,"WaterSample"))
+	} else if (length(LogFile) > 1) {
+		stop("Multiple water_sample_log found in: ",file.path(L1,"WaterSample"),
+			"\n",str_c(LogFile, collapse = "\n"))
+	}
+
 	LabLog <- data.table::fread(LogFile, colClasses = "character", data.table = F)
 
 	handyParams <- list.dirs(file.path(L1,"WaterSample"), recursive = F ,full.names = F)
@@ -47,9 +54,9 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 
 	if (any(str_detect(params, "SPM")) && any(str_detect(handyParams, "^SPM$"))) {
 
-		SPMfile <- list.files(file.path(L1,"WaterSample","SPM"), pattern = "*SPM*.csv$", full.names = T)
+		SPMfile <- list.files(file.path(L1,"WaterSample","SPM"), pattern = "SPM.csv$", full.names = T)
 
-		if (SPMfile > 1) {
+		if (length(SPMfile) > 1) {
 			stop("Multiple SPM files foud: \n", SPMfile)
 		} else if (length(SPMfile) == 0) {
 			stop("No SPM file found, name must contain 'SPM' and end with '.csv'")
@@ -82,13 +89,13 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 
 		# Calculate SPM, PIM and POM for replicates, in [mg.L-1]
 
-		SPM_tbl <- SPM_data %>% select(ID_Sample, V, Wbase, Wdry, Wburn) %>%
+		SPM_tbl <- SPM_data %>% select(SID, V, Wbase, Wdry, Wburn) %>%
 			mutate(V = as.numeric(V), Wbase = as.numeric(Wbase), Wdry = as.numeric(Wdry), Wburn= as.numeric(Wburn) ) %>%
 			mutate(SPM = ((Wdry - Wbase) / V)*1000,
 				  PIM = SPM-(Wdry-Wburn),
 				  POM = SPM-PIM)
 
-		SPM_nest <- SPM_tbl %>% select(ID_Sample, SPM, PIM, POM) %>% group_by(ID_Sample) %>% tidyr::nest()
+		SPM_nest <- SPM_tbl %>% select(SID, SPM, PIM, POM) %>% group_by(SID) %>% tidyr::nest()
 
 		SPMs <- SPM_nest %>% mutate(SPM= purrr::map_dbl(.x = data, ~ median(.x$SPM, na.rm = T)),
 							   PIM= purrr::map_dbl(.x = data, ~ median(.x$PIM, na.rm = T)),
@@ -114,10 +121,10 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 		# 							  POM_Max=max(POM),
 		# 							  POM_Min=min(POM),
 		# 							  POM_Median=as.numeric(median(POM)),
-		# 							  POM_Std=sd(POM)), by=ID_Sample]
+		# 							  POM_Std=sd(POM)), by=SID]
 
 		# Significant digit formating this way could be great !
-		# SPMs_Stats %>% group_by(ID_Sample) %>% tidyr::nest() %>%
+		# SPMs_Stats %>% group_by(SID) %>% tidyr::nest() %>%
 		# 	purrr::map_dbl(. = data , ~ as.numeric(sprintf(., fmt = '%#.2f')))
 
 		lighthouse::check_l3(project, L3, set="SPM")
@@ -134,8 +141,8 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 					  			  paste0("SPMs_table_DB_",Sys.Date(),"_",mission,".csv")))
 
 
-	} else if (any(str_detect(params, "SPM")) && !any(str_detect(HandyParams, "^SPM$"))) {
-		warning("SPM data base requested but no 'SPM' folder found under WaterSample, skiping.\n")
+	} else if (any(str_detect(params, "SPM")) && !any(str_detect(handyParams, "^SPM$"))) {
+		warning("SPM data base requested but no 'SPM' folder found under WaterSample, skiping.\n",immediate. = T)
 	}
 
 
@@ -159,12 +166,13 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 			Agdata <- Ag$Ag
 
 			temp <- data.frame(ID,t(Agdata))
-			names(temp) <- c("ID",wl)
+			names(temp) <- c("SID",wl)
 
-			if(check_wl_consistency(Ag_table, temp, DataFiles, i)) {next()}
-
-
-			Ag_table <- rbind(Ag_table, temp)
+			if(check_wl_consistency(Ag_table, temp, DataFiles, i)) {
+				tryCatch(Ag_table <- bind_rows(Ag_table, temp))
+			} else {
+				Ag_table <- rbind(Ag_table, temp)
+			}
 
 		}
 
@@ -173,8 +181,8 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 					  path = file.path(L3,"Ag",
 					  			  paste0("Ag_DB_",Sys.Date(),"_",mission,".csv")))
 
-	} else if (any(str_detect(params, "Ag")) && !any(str_detect(HandyParams, "^Ag$"))) {
-		warning("Ag data base requested but no 'Ag' folder found under WaterSample, skiping.\n")
+	} else if (any(str_detect(params, "Ag")) && !any(str_detect(handyParams, "^Ag$"))) {
+		warning("Ag data base requested but no 'Ag' folder found under WaterSample, skiping.\n", immediate. = T)
 	}
 
 
@@ -205,7 +213,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 				wl <- A$Ap$Lambda
 
 				temp <- data.frame(ID,t(Ap_data))
-				names(temp) <- c("ID",wl)
+				names(temp) <- c("SID",wl)
 
 				if(check_wl_consistency(Ap_table, temp, DataFiles, i)) {next()}
 
@@ -222,7 +230,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 				wl <- A$Anap$Lambda
 
 				temp <- data.frame(ID,t(Anap_data))
-				names(temp) <- c("ID",wl)
+				names(temp) <- c("SID",wl)
 
 				if(check_wl_consistency(Anap_table, temp, DataFiles, i)) {next()}
 
@@ -241,7 +249,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 				warning("No Aph data in: ", DataFiles[i],"\n")
 			} else {
 				temp <- data.frame(ID,t(Aph_data))
-				names(temp) <- c("ID",wl)
+				names(temp) <- c("SID",wl)
 
 				#if(check_wl_consistency(Aph_data, temp, DataFiles, i)) {next()}
 
@@ -249,24 +257,23 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 			}
 		}
 
+		lighthouse::check_l3(project, L3, set="Ap")
+		readr::write_csv(Ap_table,
+					  path = file.path(L3,"Ap",
+					  			  paste0("Ap_DB_",Sys.Date(),"_",mission,".csv")))
+
+		readr::write_csv(Anap_table,
+					  path = file.path(L3,"Ap",
+					  			  paste0("Anap_DB_",Sys.Date(),"_",mission,".csv")))
+
+		readr::write_csv(Aph_table,
+					  path = file.path(L3,"Ap",
+					  			  paste0("Aph_DB_",Sys.Date(),"_",mission,".csv")))
 
 
-	} else if (any(str_detect(params, "Ap")) && !any(str_detect(HandyParams, "^Ap$"))) {
-		warning("Ap data base requested but no 'Ap' folder found under WaterSample, skiping.\n")
+	} else if (any(str_detect(params, "Ap")) && !any(str_detect(handyParams, "^Ap$"))) {
+		warning("Ap data base requested but no 'Ap' folder found under WaterSample, skiping.\n",immediate. = T)
 	}
-
-	lighthouse::check_l3(project, L3, set="Ap")
-	readr::write_csv(Ap_table,
-				  path = file.path(L3,"Ap",
-				  			  paste0("Ap_DB_",Sys.Date(),"_",mission,".csv")))
-
-	readr::write_csv(Anap_table,
-				  path = file.path(L3,"Ap",
-				  			  paste0("Anap_DB_",Sys.Date(),"_",mission,".csv")))
-
-	readr::write_csv(Aph_table,
-				  path = file.path(L3,"Ap",
-				  			  paste0("Aph_DB_",Sys.Date(),"_",mission,".csv")))
 }
 
 
@@ -274,7 +281,7 @@ check_wl_consistency <- function(df,temp,DataFiles,i) {
 	if (length(names(df)) != 0 && (length(names(df)) != length(names(temp)) ||
 								  names(df) != names(temp))) {
 		warning("Different wavelengths detected between:\n",
-			   DataFiles[i-1],"\nand\n",DataFiles[i],"\n\nSkiping: ",DataFiles[i],"\n")
+			   DataFiles[i-1],"\nand\n",DataFiles[i],"\n\n Trying bind_rows on: ",DataFiles[i],"\n", immediate. = T)
 		T
 	} else {F}
 

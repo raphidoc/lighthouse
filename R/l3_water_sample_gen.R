@@ -166,7 +166,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 			Agdata <- Ag$Ag
 
 			temp <- data.frame(ID,t(Agdata))
-			names(temp) <- c("SID",wl)
+			names(temp) <- c("SID",paste0("Ag_",wl))
 
 			if(check_wl_consistency(Ag_table, temp, DataFiles, i)) {
 				tryCatch(Ag_table <- bind_rows(Ag_table, temp))
@@ -213,7 +213,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 				wl <- A$Ap$Lambda
 
 				temp <- data.frame(ID,t(Ap_data))
-				names(temp) <- c("SID",wl)
+				names(temp) <- c("SID",paste0("Ap_",wl))
 
 				if(check_wl_consistency(Ap_table, temp, DataFiles, i)) {next()}
 
@@ -230,7 +230,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 				wl <- A$Anap$Lambda
 
 				temp <- data.frame(ID,t(Anap_data))
-				names(temp) <- c("SID",wl)
+				names(temp) <- c("SID",paste0("Anap_",wl))
 
 				if(check_wl_consistency(Anap_table, temp, DataFiles, i)) {next()}
 
@@ -249,7 +249,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 				warning("No Aph data in: ", DataFiles[i],"\n")
 			} else {
 				temp <- data.frame(ID,t(Aph_data))
-				names(temp) <- c("SID",wl)
+				names(temp) <- c("SID",paste0("Aph_",wl))
 
 				#if(check_wl_consistency(Aph_data, temp, DataFiles, i)) {next()}
 

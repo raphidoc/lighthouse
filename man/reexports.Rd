@@ -4,10 +4,8 @@
 \name{reexports}
 \alias{reexports}
 \alias{cops_go}
-\alias{generate_cops_db}
 \alias{cops_detection_limit}
 \alias{iop_go}
-\alias{generate_iop_db}
 \title{Objects exported from other packages}
 \keyword{internal}
 \description{
@@ -15,8 +13,8 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{Cops}{\code{\link[Cops]{cops_detection_limit}}, \code{\link[Cops]{cops_go}}, \code{\link[Cops]{generate_cops_db}}}
+  \item{Cops}{\code{\link[Cops]{cops_detection_limit}}, \code{\link[Cops]{cops_go}}}
 
-  \item{Riops}{\code{\link[Riops]{generate_iop_db}}, \code{\link[Riops]{iop_go}}}
+  \item{Riops}{\code{\link[Riops]{iop_go}}}
 }}
 

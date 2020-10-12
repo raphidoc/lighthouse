@@ -1,179 +1,195 @@
-# Function to generate SQL databases from the L3 of a project
-# locally a sqlite (minimum) remotely on PostgreSQL (optional, not implemented yet)
+#' @name gen_sql_db
+#' @title gen_sql_db
+#' @description  Function to generate SQL database from the L3 of a project,
+#' locally a SQLite, remotely on a PostgreSQL instalation (optional, not implemented yet)
+#'
+#' @import dplyr
+#' @import DBI
+#' @import stringr
+#' @export
 
 #library(lubridate)
-#library(data.table)
+#library(data.table::data.table)
 #library(DBI)
-#library(tidyverse)
+#library(dplyr)
 
-Gen.SQL.DB <- function(ppath="/mnt/D/Data/Chone", overw=F) {
+gen_sql_db <- function(project, mission="",overw=F) {
 
-	setwd(ppath)
-	if (!dir.exists("./L3")) stop("No L3 directory in project ", last(last(str_split(ppath, "/"))))
+	L1 <- file.path(project,"L1")
+	L3 <- file.path(project,"L3")
 
-	# SQLite connection -----------------------------------------------------
+	if (!dir.exists(L3)) stop("No L3 directory in project: ", project)
 
-	con <- dbConnect(RSQLite::SQLite(), paste0("./L3/",last(last(str_split(ppath, "/"))),".sqlite"))
-
-	if (!is_empty(dbListTables(con)) & overw==F) {
-		stop("./L3/",last(last(str_split(ppath, "/"))),".sqlite is not empty and overwrite is set to F")
+	if (!exists("mission") || mission == "" ) {
+		mission <- last(last(str_split(project, "/")))
+		message("mission name empty, taking name of the project: ",mission)
 	}
 
-	# Field log table ---------------------------------------------------------
 
-	Field_Log <- fread(file = file.path(getwd(),list.files(pattern = "Field_Log")))
-
-	# RspectroAbs table assemblage --------------------------------------------
-	#take the output of RspectroAbs (Ag.DB, Ap.DB, Anap.DB, Aph.DB)
-	#There where different ID for forestville station : replace(as.character(Ag.DB$Samples),
-	#which(Ag.DB$Samples %in% c("FR1","FR2","FR3","FR5","FR6","FR7")),
-	#c("109r","109s","109t","109v","109w","109x"))
-
-	load(list.files(path=file.path(getwd(), "L3"),
-				 full.names = T,recursive = T, pattern = "Ag.RData"))
-	Ag <- data.table(ID=Ag.DB$ID, t(Ag.DB[["Ag.raw"]]))
-	colnames(Ag) <- c("ID", paste0("Ag_",Ag.DB$waves))
-	dbWriteTable(con, "Ag", Ag, overwrite = overw)
-
-	load(list.files(path=file.path(getwd(), "L3"),
-				 full.names = T,recursive = T, pattern = "Ap.Stramski.RData"))
-	Ap <- data.table(ID=Ap.DB$ID, t(Ap.DB$Ap))
-	colnames(Ap) <- c("ID", paste0("Ap_",Ap.DB$waves))
-	dbWriteTable(con, "Ap", Ap, overwrite = overw)
-
-	load(list.files(path=file.path(getwd(), "L3"),
-				 full.names = T,recursive = T, pattern = "Anap.Stramski.RData"))
-	Anap <- data.table(ID=Anap.DB$ID, t(Anap.DB$Anap))
-	colnames(Anap) <- c("ID", paste0("Anap_",Anap.DB$waves))
-	dbWriteTable(con, "Anap", Anap, overwrite = overw)
-
-	load(list.files(path=file.path(getwd(), "L3"),
-				 full.names = T,recursive = T, pattern = "Aph.Stramski.RData"))
-	Aph <- data.table(ID=Aph.DB$ID, t(Aph.DB$Aph))
-	colnames(Aph) <- c("ID", paste0("Aph_",Aph.DB$waves))
-	dbWriteTable(con, "Aph", Aph, overwrite = overw)
+# SQLite connection -------------------------------------------------------
 
 
-	# ASPH table assemblage ---------------------------------------------------
+	con <- dbConnect(RSQLite::SQLite(), file.path(L3,paste0(mission,".sqlite")))
 
-	ASPH <- fread(file = list.files(path=file.path(getwd(), "L3"),
-							  full.names = T,recursive = T, pattern = "ASPH_DB.csv"))
-	ASPH <- na.omit(ASPH)
-	#remove duplicated ID to take only the measurment closest to the surface
-	ASPH <- ASPH[!duplicated(ASPH$ID),]
-	dbWriteTable(con, "A", ASPH, overwrite = overw)
+	if (!exists("con")) {stop("SQLite connection not established")}
 
-	# HS6 table assemblage ----------------------------------------------------
-
-	HS6 <- fread(file = list.files(path=file.path(getwd(), "L3"),
-							 full.names = T,recursive = T, pattern = "HS6_DB.csv"))
-	HS6 <- na.omit(HS6)
-	HS6 <- HS6[!duplicated(HS6$ID),]
-	HS6 <- HS6[,c(-15,-16,-18)]
-	dbWriteTable(con, "Bb", HS6, overwrite = overw)
+	if (length(dbListTables(con)) != 0 & overw==F) {
+		stop(mission,".sqlite is not empty and overwrite is set to F")
+	}
 
 
-	# COPS table assemblage ---------------------------------------------------
+# Params manager ----------------------------------------------------------
 
-	load(list.files(path=file.path(getwd(), "L3"),
-				 full.names = T,recursive = T, pattern = "BSI.RData"))
+	handyParams <- list.files(L3, recursive = T, include.dirs = T, full.names = T)
 
-	Rrs <- data.table(ID=COPS.DB$stationID, Rrs=COPS.DB$Rrs.m)
-	colnames(Rrs) <- c("ID", paste0("Rrs_",COPS.DB$waves))
-	dbWriteTable(con, "Rrs", Rrs, overwrite = overw)
+	handyParams <- handyParams[str_detect(handyParams, "Report",negate = T)]
 
-	Rrs_sd <- data.table(ID=COPS.DB$stationID, Rrs=COPS.DB$Rrs.sd)
-	colnames(Rrs_sd) <- c("ID", paste0("Rrs_sd_",COPS.DB$waves))
-	dbWriteTable(con, "Rrs_sd", Rrs_sd, overwrite = overw)
+	# param_manager <- function(handyParams, param){
+	# 	if (any(str_detect(handyParams, param))) {
+	# 		message("Creating table for: ", param)
+	# 		handyParams[str_detect(handyParams, param)]
+	# 		TRUE
+	# 	} else {FALSE}
+	# }
 
-	nLw <- data.table(ID=COPS.DB$stationID, LwN=COPS.DB$nLw.m)
-	colnames(nLw) <- c("ID", paste0("nLw_",COPS.DB$waves))
-	dbWriteTable(con, "nLw", nLw, overwrite = overw)
+	read_db <- function(handyParams, DB) {
+		if (any(str_detect(handyParams, paste0(DB,"_DB")))) {
+			read.csv(handyParams[str_detect(handyParams, paste0(DB,"_DB"))], colClasses = "character")
+		} else {FALSE}
+	}
 
-	nLw_sd <- data.table(ID=COPS.DB$stationID, LwN=COPS.DB$nLw.sd)
-	colnames(nLw_sd) <- c("ID", paste0("nLw_sd_",COPS.DB$waves))
-	dbWriteTable(con, "nLw_sd", nLw_sd, overwrite = overw)
 
-	Kd1p <- data.table(ID=COPS.DB$stationID, Kd1p=COPS.DB$Kd.1p.m)
-	colnames(Kd1p) <- c("ID", paste0("Kd1p_",COPS.DB$waves))
-	dbWriteTable(con, "Kd1p", Kd1p, overwrite = overw)
 
-	Kd1p_sd <- data.table(ID=COPS.DB$stationID, Kd1p=COPS.DB$Kd.1p.sd)
-	colnames(Kd1p_sd) <- c("ID", paste0("Kd1p_sd_",COPS.DB$waves))
-	dbWriteTable(con, "Kd1p_sd", Kd1p_sd, overwrite = overw)
+# data_synthesis ----------------------------------------------------------
 
-	Kd10p <- data.table(ID=COPS.DB$stationID, Kd10p=COPS.DB$Kd.10p.m)
-	colnames(Kd10p) <- c("ID", paste0("Kd10p_",COPS.DB$waves))
-	dbWriteTable(con, "Kd10p", Kd10p, overwrite = overw)
 
-	Kd10p_sd <- data.table(ID=COPS.DB$stationID, Kd10p=COPS.DB$Kd.10p.sd)
-	colnames(Kd10p_sd) <- c("ID", paste0("Kd10p_sd_",COPS.DB$waves))
-	dbWriteTable(con, "Kd10p_sd", Kd10p_sd, overwrite = overw)
+	SyntheFile <- list.files(path = project, pattern = "data_synthesis", full.names = T)
 
-	Ed0 <- data.table(ID=COPS.DB$stationID, Ed0=COPS.DB$Ed0.0p.m)
-	colnames(Ed0) <- c("ID", paste0("Ed0_",COPS.DB$waves))
-	dbWriteTable(con, "Ed0", Ed0, overwrite = overw)
+	if (length(SyntheFile) == 0) {
+		stop("No 'data_synthesis' found in: ",file.path(project))
+	} else if (length(SyntheFile) > 1) {
+		stop("Multiple 'data_synthesis' found in: ",file.path(project),
+			"\n",str_c(SyntheFile, collapse = "\n"))
+	}
 
-	Ed0_sd <- data.table(ID=COPS.DB$stationID, Ed0=COPS.DB$Ed0.0p.sd)
-	colnames(Ed0_sd) <- c("ID", paste0("Ed0_sd",COPS.DB$waves))
-	dbWriteTable(con, "Ed0_sd", Ed0_sd, overwrite = overw)
+	data_synthesis <- data.table::fread(file = SyntheFile, colClasses = "character")
 
-	Ed0_f_diff <- data.table(ID=COPS.DB$stationID, Ed0=COPS.DB$Ed0.f.diff)
-	colnames(Ed0_f_diff) <- c("ID", paste0("Ed0_f_",COPS.DB$waves))
-	dbWriteTable(con, "Ed0_f_diff", Ed0_f_diff, overwrite = overw)
 
-	Sunzen <- data.table(ID=COPS.DB$stationID, Sunzen=COPS.DB$sunzen)
-	Field_Log <- left_join(Field_Log, Sunzen, by= "ID")
+# WaterSample assemblage --------------------------------------------------
 
-	# Biogeochimie tables assemblage ------------------------------------------
-	SPM_table <- fread(file = list.files(path=file.path(getwd(), "L3"),
-								  full.names = T,recursive = T, pattern = "SPM.csv"))
+	LabFile <- list.files(file.path(L1,"WaterSample"),pattern = "water_sample_log", full.names = T)
 
-	SPM_table <- setDT(SPM_table)[,list(ID, Station, Replicate, SPM, PIM, POM=SPM-PIM)]
+	if (length(LabFile) == 0) {
+		stop("No water_sample_log found in: ",file.path(L1,"WaterSample"))
+	} else if (length(LabFile) > 1) {
+		stop("Multiple water_sample_log found in: ",file.path(L1,"WaterSample"),
+			"\n",str_c(LabFile, collapse = "\n"))
+	}
 
-	SPMs <- setDT(SPM_table)[,list(SPM=as.numeric(median(SPM)),
-			  	   			 PIM=as.numeric(median(PIM)),
-							 POM=as.numeric(median(POM))), by=ID]
-	dbWriteTable(con, "SPMs", SPMs, overwrite = overw)
+	LabLog <- data.table::fread(file = LabFile, data.table = F, colClasses = "character")
+	if (is.data.frame(LabLog)) {dbWriteTable(con, "lab_log", LabLog, overwrite = overw)}
 
-	#!Should also compute SPM_Mean the way carlos does, with confidence interval!
-	SPMs_Stats <- setDT(SPM_table)[,list(SPM_Mean=mean(SPM),
-							SPM_Max=max(SPM),
-							SPM_Min=min(SPM),
-							SPM_Median=as.numeric(median(SPM)),
-							SPM_Std=sd(SPM),
-							PIM_Mean=mean(PIM),
-							PIM_Max=max(PIM),
-							PIM_Min=min(PIM),
-							PIM_Median=as.numeric(median(PIM)),
-							PIM_Std=sd(PIM),
-							POM_Mean=mean(POM),
-							POM_Max=max(POM),
-							POM_Min=min(POM),
-							POM_Median=as.numeric(median(POM)),
-							POM_Std=sd(POM)), by=ID]
+	Ap <- read_db(handyParams, "Ap")
+	if (is.data.frame(Ap)) {dbWriteTable(con, "Ap", Ap, overwrite = overw)}
 
-	dbWriteTable(con, "SPMs_Stats", SPMs_Stats, overwrite = overw)
+	Anap <- read_db(handyParams, "Anap")
+	if (is.data.frame(Anap)) {dbWriteTable(con, "Anap", Anap, overwrite = overw)}
 
-	Chl_a_table <- fread(file = list.files(path=file.path(getwd(), "L3"),
-								    full.names = T,recursive = T, pattern = "Chl-a.csv"))
+	Aph <- read_db(handyParams, "Aph")
+	if (is.data.frame(Aph)) {dbWriteTable(con, "Aph", Aph, overwrite = overw)}
 
-	Pigments <- setDT(Chl_a_table)[,list(Chl_a=median(Chl_a),
-								  Phaeo=median(Phaeopig)), by=ID]
-	dbWriteTable(con, "Pigments", Pigments, overwrite = overw)
+	Ag <- read_db(handyParams, "Ag")
+	if (is.data.frame(Ag)) {dbWriteTable(con, "Ag", Ag, overwrite = overw)}
 
-	Pigments_Stats <- setDT(Chl_a_table)[,list(Chl_a_Mean=mean(Chl_a),
-									   Chl_a_Max=max(Chl_a),
-									   Chl_a_Min=min(Chl_a),
-									   Chl_a_Median=median(Chl_a),Chl_a_Std=sd(Chl_a),
-									   Phaeo_Mean=mean(Phaeopig),
-									   Phaeo_Max=max(Phaeopig),
-									   Phaeo_Min=min(Phaeopig),
-									   Phaeo_Median=median(Phaeopig),
-									   Phaeo_Std=sd(Phaeopig)), by=ID]
-	dbWriteTable(con, "Pigments_Stats", Pigments_Stats, overwrite = overw)
+	SPMs <- read_db(handyParams, "SPMs")
+	if (is.data.frame(SPMs)) {dbWriteTable(con, "SPMs", SPMs, overwrite = overw)}
 
-	dbWriteTable(con, "Field_Log", Field_Log, overwrite = overw)
-	#RSQLite disconnect
+
+# COPS assemblage ---------------------------------------------------------
+
+
+	if (file.exists(list.files(path=file.path(L3,"COPS"),
+						  full.names = T, pattern = ".RData"))) {
+
+		load(list.files(path=file.path(L3,"COPS"),
+					 full.names = T, pattern = ".RData"))
+
+		Rrs <- data.table::data.table(ID=COPS.DB$ID, Rrs=COPS.DB$Rrs.m)
+		colnames(Rrs) <- c("ID", paste0("Rrs_",COPS.DB$waves))
+		dbWriteTable(con, "Rrs", Rrs, overwrite = overw)
+
+		Rrs_sd <- data.table::data.table(ID=COPS.DB$ID, Rrs=COPS.DB$Rrs.sd)
+		colnames(Rrs_sd) <- c("ID", paste0("Rrs_sd_",COPS.DB$waves))
+		dbWriteTable(con, "Rrs_sd", Rrs_sd, overwrite = overw)
+
+		nLw <- data.table::data.table(ID=COPS.DB$ID, LwN=COPS.DB$nLw.m)
+		colnames(nLw) <- c("ID", paste0("nLw_",COPS.DB$waves))
+		dbWriteTable(con, "nLw", nLw, overwrite = overw)
+
+		nLw_sd <- data.table::data.table(ID=COPS.DB$ID, LwN=COPS.DB$nLw.sd)
+		colnames(nLw_sd) <- c("ID", paste0("nLw_sd_",COPS.DB$waves))
+		dbWriteTable(con, "nLw_sd", nLw_sd, overwrite = overw)
+
+		Kd1p <- data.table::data.table(ID=COPS.DB$ID, Kd1p=COPS.DB$Kd.1p.m)
+		colnames(Kd1p) <- c("ID", paste0("Kd1p_",COPS.DB$waves))
+		dbWriteTable(con, "Kd1p", Kd1p, overwrite = overw)
+
+		Kd1p_sd <- data.table::data.table(ID=COPS.DB$ID, Kd1p=COPS.DB$Kd.1p.sd)
+		colnames(Kd1p_sd) <- c("ID", paste0("Kd1p_sd_",COPS.DB$waves))
+		dbWriteTable(con, "Kd1p_sd", Kd1p_sd, overwrite = overw)
+
+		Kd10p <- data.table::data.table(ID=COPS.DB$ID, Kd10p=COPS.DB$Kd.10p.m)
+		colnames(Kd10p) <- c("ID", paste0("Kd10p_",COPS.DB$waves))
+		dbWriteTable(con, "Kd10p", Kd10p, overwrite = overw)
+
+		Kd10p_sd <- data.table::data.table(ID=COPS.DB$ID, Kd10p=COPS.DB$Kd.10p.sd)
+		colnames(Kd10p_sd) <- c("ID", paste0("Kd10p_sd_",COPS.DB$waves))
+		dbWriteTable(con, "Kd10p_sd", Kd10p_sd, overwrite = overw)
+
+		Ed0 <- data.table::data.table(ID=COPS.DB$ID, Ed0=COPS.DB$Ed0.0p.m)
+		colnames(Ed0) <- c("ID", paste0("Ed0_",COPS.DB$waves))
+		dbWriteTable(con, "Ed0", Ed0, overwrite = overw)
+
+		Ed0_sd <- data.table::data.table(ID=COPS.DB$ID, Ed0=COPS.DB$Ed0.0p.sd)
+		colnames(Ed0_sd) <- c("ID", paste0("Ed0_sd",COPS.DB$waves))
+		dbWriteTable(con, "Ed0_sd", Ed0_sd, overwrite = overw)
+
+		Ed0_f_diff <- data.table::data.table(ID=COPS.DB$ID, Ed0=COPS.DB$Ed0.f.diff)
+		colnames(Ed0_f_diff) <- c("ID", paste0("Ed0_f_",COPS.DB$waves))
+		dbWriteTable(con, "Ed0_f_diff", Ed0_f_diff, overwrite = overw)
+
+		Sunzen <- data.table::data.table(ID=COPS.DB$ID, Sunzen=COPS.DB$sunzen)
+		data_synthesis <- left_join(data_synthesis, Sunzen, by= "ID")
+	}
+
+
+# IOP assemblage ----------------------------------------------------------
+
+	ASPH <- read_db(handyParams, "ASPH")
+	if (is.data.frame(ASPH)) {dbWriteTable(con, "ASPH", ASPH, overwrite = overw)}
+
+	ACS <- read_db(handyParams, "ACS")
+	if (is.data.frame(ACS)) {dbWriteTable(con, "ACS", ACS, overwrite = overw)}
+
+	HS6 <- read_db(handyParams, "HS6")
+	if (is.data.frame(HS6)) {dbWriteTable(con, "HS6", HS6, overwrite = overw)}
+
+	BB9 <- read_db(handyParams, "BB9")
+	if (is.data.frame(BB9)) {dbWriteTable(con, "BB9", BB9, overwrite = overw)}
+
+	BB3 <- read_db(handyParams, "BB3")
+	if (is.data.frame(BB3)) {dbWriteTable(con, "BB3", BB3, overwrite = overw)}
+
+	CTD <- read_db(handyParams, "CTD")
+	if (is.data.frame(CTD)) {dbWriteTable(con, "CTD", CTD, overwrite = overw)}
+
+	FLECO <- read_db(handyParams, "FLECO")
+	if (is.data.frame(FLECO)) {dbWriteTable(con, "FLECO", FLECO, overwrite = overw)}
+
+# wrap up -----------------------------------------------------------------
+
+
+	dbWriteTable(con, "data_synthesis", data_synthesis, overwrite = overw)
+
 	dbDisconnect(con)
 }

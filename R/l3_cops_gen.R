@@ -29,7 +29,7 @@
 #' @export
 #'
 
-generate_cops_db <- function(project, mission="", boat=c("")) {
+l3_cops_gen <- function(project, mission="", boat=c("")) {
 
   if (!exists("mission") || mission == "" ) {
     mission <- str_split(project,"/")[[1]]
@@ -37,14 +37,13 @@ generate_cops_db <- function(project, mission="", boat=c("")) {
     message("mission name empty, taking name of the project: ",mission)
   }
 
-  L3 <- file.path(project,"L3")
-
-  GreggCarder.data()
+  Cops::GreggCarder.data()
 
   ##### All available wavelenghts proposed by BIOSPHERICAL
   waves.DB=c(305, 313, 320, 330, 340, 380, 395, 412, 443, 465, 490, 510, 532, 555,
              560, 565, 589, 625, 665, 683, 694, 710, 765, 780, 875)
 
+  L3 <- file.path(project,"L3")
   L2 <- file.path(project, "L2")
 
   # Check project before doing any manipulation
@@ -52,7 +51,14 @@ generate_cops_db <- function(project, mission="", boat=c("")) {
   #if (CheckList["Proot"][[1]] == F) {stop("project path is not set at a project root folder")}
 
   # Read processing Log
-  LogFile <- list.files(path = file.path(project,"ProLog"), pattern = "Cops_processing_log", recursive = T, full.names = T)
+  LogFile <- list.files(path = file.path(project,"ProLog"), pattern = "Cops_processing_log", full.names = T)
+
+  if (length(LogFile) == 0) {
+    stop("No Cops_processing_log found in: ",file.path(project,"ProLog"))
+  } else if (length(LogFile) > 1) {
+    stop("Multiple Cops_processing_log found in: ",file.path(project,"ProLog"),
+         "\n",str_c(LogFile, collapse = "\n"))
+  }
 
   ProLog <- data.table::fread(file = LogFile, data.table = F, colClasses = "character")
 
@@ -444,14 +450,14 @@ generate_cops_db <- function(project, mission="", boat=c("")) {
       print ("Compute Ed0.dif/Ed0.tot using Gregg and Carder model")
       julian.day <- as.numeric(format(cops$date.mean, format = "%j"))
       visibility <- 25
-      egc <- GreggCarder.f(julian.day, lon[i], lat[i], sunzen[i], lam.sel = waves.DB[xw.DB], Vi=visibility)
+      egc <- Cops::GreggCarder.f(julian.day, lon[i], lat[i], sunzen[i], lam.sel = waves.DB[xw.DB], Vi=visibility)
 
       ix.490 <- which.min(abs(waves.DB[xw.DB] - 490))
 
       ratio = egc$Ed[ix.490]*100/cops$Ed0.0p[ix.490]
 
       while (ratio > 1.05  & visibility > 0.5) {
-        egc <- GreggCarder.f(julian.day, lon[i], lat[i], sunzen[i],lam.sel = waves.DB[xw.DB], Vi=visibility)
+        egc <- Cops::GreggCarder.f(julian.day, lon[i], lat[i], sunzen[i],lam.sel = waves.DB[xw.DB], Vi=visibility)
         ratio = egc$Ed[ix.490]*100/cops$Ed0.0p[ix.490]
         visibility = visibility - 0.5
       }
@@ -549,7 +555,7 @@ generate_cops_db <- function(project, mission="", boat=c("")) {
 
   require(rmarkdown)
 
-  report = paste0("Report_COPS_DB_",Sys.Date(),"_",str_c(mission,boat,collapse = "_"),".Rmd")
+  report = paste0("Report_COPS_",Sys.Date(),"_",str_c(mission,boat,collapse = "_"),".Rmd")
 
   cat(paste0("---\ntitle: '<center>COPS report for __",mission," ",str_c(boat,collapse = "_"),"__ mission from __",min(COPS.DB$date),"__ to __",max(COPS.DB$date),"__ UTC </center>'\n",
            "author: ''\n",

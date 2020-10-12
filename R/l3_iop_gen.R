@@ -9,15 +9,29 @@
 #' Create in L3 one csv file by instrument and a global html report for all processed variables.
 #' @export
 
-l3_iop_gen <- function(project, mission="XXX", boat=c("")){
+l3_iop_gen <- function(project, mission="", boat=c("")){
   #From some reading in https://stackoverflow.com/questions/13649979/what-specifically-are-the-dangers-of-evalparse
   #The method used here should be changed ....
+
+  if (!exists("mission") || mission == "" ) {
+    mission <- str_split(project,"/")[[1]]
+    mission <- mission[length(mission)]
+    message("mission name empty, taking name of the project: ",mission)
+  }
 
 # Filter setup ------------------------------------------------------------
 
   L2 <- file.path(project, "L2")
 
   LogFile <- list.files(path = file.path(project,"ProLog"), pattern = "Riops_processing_log", recursive = F, full.names = T)
+
+  # Check file
+  if (length(LogFile) == 0) {
+    stop("No Riops_processing_log found in: ",file.path(project,"ProLog"))
+  } else if (length(LogFile) > 1) {
+    stop("Multiple Riops_processing_log found in: ",file.path(project,"ProLog"),
+         "\n",str_c(LogFile, collapse = "\n"))
+  }
 
   ProLog <- data.table::fread(file = LogFile, data.table = F, colClasses = "character")
 
@@ -173,7 +187,7 @@ l3_iop_gen <- function(project, mission="XXX", boat=c("")){
 
   require(rmarkdown)
 
-  report = paste0("Report_IOP_DB_",Sys.Date(),"_",str_c(mission,boat,collapse = "_"),".Rmd")
+  report = paste0("Report_IOP_",Sys.Date(),"_",str_c(mission,boat,collapse = "_"),".Rmd")
 
   cat(paste0("---\ntitle: '<center>IOP report for __",str_c(mission,boat,collapse = " "),"__ </center>'\n",
              "author: ''\n",

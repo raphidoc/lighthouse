@@ -54,7 +54,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 
 	if (any(str_detect(params, "SPM")) && any(str_detect(handyParams, "^SPM$"))) {
 
-		SPMfile <- list.files(file.path(L1,"WaterSample","SPM"), pattern = "SPM.csv$", full.names = T)
+		SPMfile <- list.files(file.path(L1,"WaterSample","SPM"), pattern = ".*SPM.*\\.csv$", full.names = T)
 
 		if (length(SPMfile) > 1) {
 			stop("Multiple SPM files foud: \n", SPMfile)

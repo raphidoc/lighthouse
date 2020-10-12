@@ -15,7 +15,7 @@ check_project <- function(project, L1="", L2="", set="") {
 	Pobjects <- list.files(project, recursive = F, full.names = T)
 
 	# Check if project path is trully a project folder root
-	if (exists("L1") && dir.exists(L1)) {
+	if (dir.exists(L1)) {
 
 		Proot <- T
 	} else { Proot <- F }
@@ -26,7 +26,7 @@ check_project <- function(project, L1="", L2="", set="") {
 	} else { Proot <- F }
 
 	# Check if L2 exist (for set) and is not empty
-	if (exists("set") && dir.exists(L2) &&
+	if (dir.exists(L2) &&
 	    length(dir(L2, pattern = set, recursive = T ,include.dirs = T)) != 0) {
 
 		L2exist <- T

@@ -13,6 +13,11 @@
 
 
 sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "/mnt/D/Data/IML4")) {
+	# have to detach package:stats to avoid C function mask
+	if (any(str_detect(search(), "package:stats"))){
+		detach("package:stats")
+	}
+
 
 	con <- dbConnect(RSQLite::SQLite(), "/mnt/D/Data/merged_db.sqlite")
 
@@ -58,12 +63,16 @@ sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "
 	# create new integer primary key
 
 	data_synthesis <- data_synthesis %>% mutate(ID= seq_along(ID))
+	data_synthesis <- data_synthesis %>% relocate(ID,PID)
 
 	ID_frame <- data_synthesis %>% select(ID,PID)
 
-	lab_log <- data_synthesis %>% select(ID,PID) %>% right_join(lab_log,by="PID") %>% mutate(SID= seq_along(SID))
+	lab_log <- lab_log %>% select(!ID)
 
-	SID_frame <- lab_log %>% select(SID,SPID)
+	lab_log <- data_synthesis %>% select(ID,PID) %>% right_join(lab_log,by="PID") %>% mutate(SID= seq_along(SID))
+	lab_log <- lab_log %>% relocate(ID,SID,PID,SPID)
+
+	SID_frame <- lab_log %>% select(ID,SID,SPID)
 
 	tablist <- unique(tablist[str_detect(tablist, "data_synthesis|lab_log", negate = T)])
 
@@ -82,10 +91,13 @@ sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "
 		} else if (any(str_detect(names(eval(parse(text = tab))),"^SID$"))) {
 			assign(tab, eval(parse(text = tab)) %>% select(!SID))
 			assign(tab, eval(parse(text = tab)) %>% right_join(SID_frame, by= "SPID"))
-			assign(tab, eval(parse(text = tab)) %>% relocate(SID,SPID))}
+			assign(tab, eval(parse(text = tab)) %>% relocate(SID,ID,SPID))}
 
 		dbWriteTable(con, tab, eval(parse(text = tab)), overwrite = F)
 	}
+	dbWriteTable(con, "data_synthesis", data_synthesis, overwrite = F)
+	dbWriteTable(con, "lab_log", lab_log, overwrite = F)
+
 	dbDisconnect(con)
 }
 

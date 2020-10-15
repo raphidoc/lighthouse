@@ -2,9 +2,10 @@
 % Please edit documentation in R/sql_db.R
 \name{gen_sql_db}
 \alias{gen_sql_db}
+\alias{sql_gen}
 \title{gen_sql_db}
 \usage{
-gen_sql_db(project, mission = "", overw = F)
+sql_gen(project, mission = "", overw = F)
 }
 \description{
 Function to generate SQL database from the L3 of a project,

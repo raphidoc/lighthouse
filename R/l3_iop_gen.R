@@ -109,7 +109,7 @@ l3_iop_gen <- function(project, mission="", boat=c("")){
   if (any(str_detect(objects(), "ACS"))) {
     DF_list <- purrr::map(mget(ls(pattern = "(ACS)_[[:digit:]]+")),
                           setNames,
-                          c("ID","Depth",paste0("A_",a_wl_ACS),paste0("C_",c_wl_ACS)))
+                          c("ID","Depth",paste0("A_",round(a_wl_ACS)),paste0("C_",round(c_wl_ACS))))
     ACS_DF <- bind_rows(DF_list)
     lighthouse::check_l3(project, L3, set="ACS")
     readr::write_csv(ACS_DF,

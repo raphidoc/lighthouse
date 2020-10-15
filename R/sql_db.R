@@ -13,7 +13,7 @@
 #library(DBI)
 #library(dplyr)
 
-gen_sql_db <- function(project, mission="",overw=F) {
+sql_gen <- function(project, mission="",overw=F) {
 
 	L1 <- file.path(project,"L1")
 	L3 <- file.path(project,"L3")
@@ -55,7 +55,7 @@ gen_sql_db <- function(project, mission="",overw=F) {
 	read_db <- function(handyParams, DB) {
 		if (any(str_detect(handyParams, paste0(DB,"_DB")))) {
 			read.csv(handyParams[str_detect(handyParams, paste0(DB,"_DB"))], colClasses = "character")
-		} else {FALSE}
+		} else {NULL}
 	}
 
 
@@ -165,26 +165,77 @@ gen_sql_db <- function(project, mission="",overw=F) {
 
 # IOP assemblage ----------------------------------------------------------
 
+	# need to bind cols of same variable comming from different instruments
+	# interpolate value to common wavelength ?
+	# Think it's better not to modify data here, not the purpose of the fuction
+	# A Tag like 'Instrument' should come with the data from here to specifies wich instrument was
+	# Used to acquire varaible A or Bb: Nope, actually this is the job of data_synthesis table
+
+	# A and C
 	ASPH <- read_db(handyParams, "ASPH")
-	if (is.data.frame(ASPH)) {dbWriteTable(con, "ASPH", ASPH, overwrite = overw)}
+	if (is.data.frame(ASPH)) {
+		ASPH_A <- ASPH[str_detect(names(ASPH), "ID|Depth|A_")]
+		#ASPH_wl <- na.omit(str_extract(names(ASPH_A), "(?<=A_)[:digit:]{3}"))
+	} else {
+		ASPH_A <- NULL
+	}
 
 	ACS <- read_db(handyParams, "ACS")
-	if (is.data.frame(ACS)) {dbWriteTable(con, "ACS", ACS, overwrite = overw)}
+	if (is.data.frame(ACS)) {
+		ACS_A <- ACS[str_detect(names(ACS), "A_")]
+		# ACS_wl <- na.omit(str_extract(names(ACS_A), "(?<=A_)[:digit:]{3}"))
+		# ACS_A <- approx(ACS_wl,ACS[2,str_detect(names(ACS), "A_")],xout = ASPH_wl)
+	} else {
+		ACS_A <- NULL
+	}
+
+	A <- bind_rows(ASPH_A,ACS_A)
+
+	ACS_C <- ACS[str_detect(names(ACS), "ID|Depth|C_")]
+
+	if (is.data.frame(A)) {dbWriteTable(con, "A", A, overwrite = overw)}
+	if (is.data.frame(ACS_C)) {dbWriteTable(con, "C", ACS_C, overwrite = overw)}
+
+	# Bb and Bbp
 
 	HS6 <- read_db(handyParams, "HS6")
-	if (is.data.frame(HS6)) {dbWriteTable(con, "HS6", HS6, overwrite = overw)}
+	if (is.data.frame(HS6)) {
+		HS6_Bb <- HS6[str_detect(names(HS6), "ID|Depth|Bb_")]
+		HS6_Bbp <- HS6[str_detect(names(HS6), "ID|Depth|Bbp_")]
+	} else {
+		HS6_Bb <- NULL
+		HS6_Bbp <- NULL
+	}
 
 	BB9 <- read_db(handyParams, "BB9")
-	if (is.data.frame(BB9)) {dbWriteTable(con, "BB9", BB9, overwrite = overw)}
+	if (is.data.frame(BB9)) {
+		BB9_Bb <- BB9[str_detect(names(BB9), "ID|Depth|Bb_")]
+		BB9_Bbp <- BB9[str_detect(names(BB9), "ID|Depth|Bbp_")]
+	} else {
+		BB9_Bb <- NULL
+		BB9_Bbp <- NULL
+	}
 
 	BB3 <- read_db(handyParams, "BB3")
-	if (is.data.frame(BB3)) {dbWriteTable(con, "BB3", BB3, overwrite = overw)}
+	if (is.data.frame(BB3)) {
+		BB3_Bb <- BB3[str_detect(names(BB3), "ID|Depth|Bb_")]
+		BB3_Bbp <- BB3[str_detect(names(BB3), "ID|Depth|Bbp_")]
+	} else {
+		BB3_Bb <- NULL
+		BB3_Bbp <- NULL
+	}
+
+	Bb <- bind_rows(HS6_Bb,BB9_Bb,BB3_Bb)
+	Bbp <- bind_rows(HS6_Bbp,BB9_Bbp,BB3_Bbp)
+
+	if (is.data.frame(Bb)) {dbWriteTable(con, "Bb", Bb, overwrite = overw)}
+	if (is.data.frame(Bbp)) {dbWriteTable(con, "Bbp", Bbp, overwrite = overw)}
 
 	CTD <- read_db(handyParams, "CTD")
 	if (is.data.frame(CTD)) {dbWriteTable(con, "CTD", CTD, overwrite = overw)}
 
-	FLECO <- read_db(handyParams, "FLECO")
-	if (is.data.frame(FLECO)) {dbWriteTable(con, "FLECO", FLECO, overwrite = overw)}
+	# FLECO <- read_db(handyParams, "FLECO")
+	# if (is.data.frame(FLECO)) {dbWriteTable(con, "FLECO", FLECO, overwrite = overw)}
 
 # wrap up -----------------------------------------------------------------
 

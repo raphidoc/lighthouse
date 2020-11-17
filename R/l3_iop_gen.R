@@ -2,16 +2,19 @@
 #' @title generate instrument databases in L3
 #' @author Raphael Mabit
 #'
-#' @import dplyr
-#' @import stringr
 #' @description Loop over all L2 Station QC above 0 (in iop_processing_log) to load and extract
 #' all non-empty list in IOP.fitted.down.RData file.
 #' Create in L3 one csv file by instrument and a global html report for all processed variables.
+#'
+#' TO DO: The method used here eval(parse(...)) should be changed also use check_wl_consistency to do what it says
+#' Check ID consistency between L2 and processing_log
+#'
+#' @import dplyr
+#' @import stringr
 #' @export
 
 l3_iop_gen <- function(project, mission=""){
   #From some reading in https://stackoverflow.com/questions/13649979/what-specifically-are-the-dangers-of-evalparse
-  #The method used here should be changed ....
 
   if (!exists("mission") || mission == "" ) {
     mission <- str_split(project,"/")[[1]]
@@ -40,16 +43,24 @@ l3_iop_gen <- function(project, mission=""){
   IOPframe <- data.frame(dirs)
 
   IOPframe <- IOPframe %>%
-    mutate(ID = str_extract(dirs, "(?<=/)[[:digit:]]+"))
+    mutate(ID = str_extract(dirs, "(?<=/)[[:digit:]]+(?=/)"))
 
   # Identifies paths with ProLog
   ProLog <- ProLog %>% inner_join(IOPframe, by="ID")
+
+  difID <- ProLog$ID[which(!ProLog$ID %in% IOPframe$ID)]
+
+  if (!purrr::is_empty(difID)) {
+  warning("ProLog ID not found in L2:\n",str_c(difID, collapse =", "))
+  }
 
   # Filter QC
   ProLog <- ProLog %>% filter(QC > 0)
 
 
 # loop over all dataset in all directories --------------------------------
+
+  anydevice <- tibble()
 
   for (i in seq_along(ProLog$dirs)){
     ID <- ProLog$ID[i]
@@ -61,9 +72,10 @@ l3_iop_gen <- function(project, mission=""){
       message("File :",DataFile," does not exist")
     }
 
-
     devices <- purrr::map_lgl(IOP.fitted.down[-1], rlang::is_empty) == F
     device <- devices[devices]
+
+    anydevice <- bind_rows(anydevice, data.frame(ID=ID, t(devices)))
 
     for (i2 in seq_along(device)){
       message("Device: ",paste0(names(device[i2]),"_",ID))
@@ -81,12 +93,16 @@ l3_iop_gen <- function(project, mission=""){
           next()
         }
         if(var_x == "wl" & names(device[i2]) == "ASPH"){
-          if (exists("wl_ASPH") && wl_ASPH != eval(parse(text=paste0("IOP.fitted.down$",names(device[i2]),"$",var_x)))) warning(paste("ASPH wavelength have changed:",ID))
+          if (exists("wl_ASPH") && wl_ASPH != eval(parse(text=paste0("IOP.fitted.down$",names(device[i2]),"$",var_x)))){
+            warning(paste("ASPH wavelength have changed:",ID))
+          }
           wl_ASPH <- eval(parse(text=paste0("IOP.fitted.down$",names(device[i2]),"$",var_x)))
           next()
         }
         if(var_x == "wl" & names(device[i2]) == "BB9"){
-          if (exists("wl_BB9") && wl_BB9 != eval(parse(text=paste0("IOP.fitted.down$",names(device[i2]),"$",var_x)))) warning(paste("BB9 wavelength have changed:",ID))
+          if (exists("wl_BB9") && wl_BB9 != eval(parse(text=paste0("IOP.fitted.down$",names(device[i2]),"$",var_x)))) {
+            warning(paste("BB9 wavelength have changed:",ID))
+          }
           wl_BB9 <- eval(parse(text=paste0("IOP.fitted.down$",names(device[i2]),"$",var_x)))
           next()
         }
@@ -119,14 +135,14 @@ l3_iop_gen <- function(project, mission=""){
                        "672.1","676.5","680.7","685.0","688.9","693.1","696.8","700.7","704.6","708.3","711.8","715.3","718.9","722.5","725.9","729.1","732.3","735.4","738.3",
                        "741.3","744.0","746.7")}
 
-  if (any(str_detect(objects(), "ACS"))) {
+  if (any(anydevice$ACS)) {
     DF_list <- purrr::map(mget(ls(pattern = "(ACS)_[[:digit:]]+")),
                           setNames,
                           c("ID","Depth",paste0("A_",a_wl_ACS),paste0("C_",c_wl_ACS)))
     ACS_DF <- bind_rows(DF_list)
     lighthouse::check_l3(project, L3, set="ACS")
     readr::write_csv(ACS_DF,
-                     path = file.path(L3,"ACS",
+                     file = file.path(L3,"ACS",
                                       paste0("ACS_DB_",Sys.Date(),"_",mission,".csv")))
     ACSreport <- TRUE
   } else {ACSreport <- FALSE}
@@ -161,13 +177,13 @@ l3_iop_gen <- function(project, mission=""){
                  "744","745","746","747","748","749","750","751","752","753","754","755","756","757","758","759",
                  "760","761","762","763","764")}
 
-  if (any(str_detect(objects(), "ASPH"))) {
+  if (any(anydevice$ASPH)) {
     ASPH_DF <- bind_rows(mget(ls(pattern = "(ASPH)_[[:digit:]]+")))
     names(ASPH_DF) <- c("ID","Depth",paste0("A_",wl_ASPH))
     # Check that no old DB is earased accidentally
     lighthouse::check_l3(project, L3, set="ASPH")
     readr::write_csv(ASPH_DF,
-                     path = file.path(L3,"ASPH",
+                     file = file.path(L3,"ASPH",
                                       paste0("ASPH_DB_",Sys.Date(),"_",mission,".csv")))
     ASPHreport <- TRUE
   } else {ASPHreport <- FALSE}
@@ -175,14 +191,15 @@ l3_iop_gen <- function(project, mission=""){
 
   # BB9
   if (!exists("wl_BB9")) {wl_BB9 <- c("412","440","488","510","532","595","650","676","715")}
-  if (any(str_detect(objects(), "BB9"))) {
+
+  if (any(anydevice$BB9)) {
     DF_list <- purrr::map(mget(ls(pattern = "(BB9)_[[:digit:]]+")),
                           setNames,
                           c("ID","Depth",paste0("Bbp_",wl_BB9),paste0("Bb_",wl_BB9),"Bbp_555","nuP"))
     BB9_DF <- bind_rows(DF_list)
     lighthouse::check_l3(project, L3, set="BB9")
     readr::write_csv(BB9_DF,
-                     path = file.path(L3,"BB9",
+                     file = file.path(L3,"BB9",
                                       paste0("BB9_DB_",Sys.Date(),"_",mission,".csv")))
     BB9report <- TRUE
   } else {BB9report <- FALSE}
@@ -190,36 +207,37 @@ l3_iop_gen <- function(project, mission=""){
 
 
   # CTD
-  if (any(str_detect(objects(), "CTD"))) {
+  if (any(anydevice$CTD)) {
     CTD_DF <- bind_rows(mget(ls(pattern = "(CTD)_[[:digit:]]+")))
     names(CTD_DF) <- c("ID","Depth","Temp","PSU")
     lighthouse::check_l3(project, L3, set="CTD")
     readr::write_csv(CTD_DF,
-                     path = file.path(L3,"CTD",
+                     file = file.path(L3,"CTD",
                                       paste0("CTD_DB_",Sys.Date(),"_",mission,".csv")))
     CTDreport <- TRUE
   } else {CTDreport <- FALSE}
 
   # FLECO
-  if (any(str_detect(objects(), "FLECO"))) {
+  if (any(anydevice$FLECO)) {
     FLECO_DF <- bind_rows(mget(ls(pattern = "(FLECO)_[[:digit:]]+")))
     lighthouse::check_l3(project, L3, set="FLECO")
     readr::write_csv(FLECO_DF,
-                     path = file.path(L3,"FLECO",
+                     file = file.path(L3,"FLECO",
                                       paste0("FLECO_DB_",Sys.Date(),"_",mission,".csv")))
     FLECOreport <- TRUE
   } else {FLECOreport <- FALSE}
 
   # HS6
   if (!exists("wl_HS6")) {wl_HS6 <- c("394","420","470","532","620","700")}
-  if (any(str_detect(objects(), "HS6"))){
+
+  if (any(anydevice$HS6)){
     DF_list <- purrr::map(mget(ls(pattern = "(HS6)_[[:digit:]]+")),
                           setNames,
                           c("ID","Depth",paste0("Bbp_",wl_HS6),paste0("Bb_",wl_HS6),"FDOM","FCHL","Bbp_555","nuP"))
     HS6_DF <- bind_rows(DF_list)
     lighthouse::check_l3(project, L3, set="HS6")
     readr::write_csv(HS6_DF,
-                     path = file.path(L3,"HS6",
+                     file = file.path(L3,"HS6",
                                       paste0("HS6_DB_",Sys.Date(),"_",mission,".csv")))
     HS6report <- TRUE
   } else {HS6report <- FALSE}

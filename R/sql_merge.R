@@ -62,8 +62,9 @@ sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "
 
 	# create new integer primary key
 
-	data_synthesis <- data_synthesis %>% mutate(ID= seq_along(ID))
-	data_synthesis <- data_synthesis %>% relocate(ID,PID)
+	data_synthesis <- data_synthesis %>% mutate(ID = seq_along(ID),
+									    Mission = str_extract(PID, "^[:alnum:]+(?=_)"))
+	data_synthesis <- data_synthesis %>% relocate(ID,PID,Mission)
 
 	ID_frame <- data_synthesis %>% select(ID,PID)
 

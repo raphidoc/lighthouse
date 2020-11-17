@@ -19,7 +19,7 @@
 #' @export
 #'
 
-l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap")) {
+l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 
 
 # Setup -------------------------------------------------------------------
@@ -45,7 +45,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 			"\n",str_c(LogFile, collapse = "\n"))
 	}
 
-	LabLog <- data.table::fread(LogFile, colClasses = "character", data.table = F)
+	LabLog <- data.table::fread(LogFile, colClasses = "character", data.table = F) %>% mutate(Depth=as.numeric(Depth))
 
 	handyParams <- list.dirs(file.path(L1,"WaterSample"), recursive = F ,full.names = F)
 
@@ -88,12 +88,21 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 		}
 
 		# Calculate SPM, PIM and POM for replicates, in [mg.L-1]
-
-		SPM_tbl <- SPM_data %>% select(SID, V, Wbase, Wdry, Wburn) %>%
+		SPM_tbl <- SPM_data %>% select(SID, Replicate, V, Wbase, Wdry, Wburn) %>%
 			mutate(V = as.numeric(V), Wbase = as.numeric(Wbase), Wdry = as.numeric(Wdry), Wburn= as.numeric(Wburn) ) %>%
 			mutate(SPM = ((Wdry - Wbase) / V)*1000,
 				  PIM = SPM-(Wdry-Wburn),
 				  POM = SPM-PIM)
+
+		# QC request if no QC file are found in ProLog/SPM
+		QCfile <- list.files(file.path(project,"ProLog", "SPM"), pattern="QC[[:graph:]]+csv", full.names = T)
+
+		if (purrr::is_empty(QCfile)) {
+			message("\nNo QC file found, would you like to produce QC files ? y/n ")
+			QCrequest <- readline(prompt = "")
+			if (QCrequest == "y")
+			qc_spm(project, mission, LabLog, SPM_tbl)
+		}
 
 		SPM_nest <- SPM_tbl %>% select(SID, SPM, PIM, POM) %>% group_by(SID) %>% tidyr::nest()
 
@@ -129,7 +138,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 
 		lighthouse::check_l3(project, L3, set="SPM")
 		readr::write_csv(SPMs,
-					  path = file.path(L3,"SPM",
+					  file = file.path(L3,"SPM",
 					  			  paste0("SPMs_DB_",Sys.Date(),"_",mission,".csv")))
 
 		# readr::write_csv(SPMs_stats,
@@ -137,7 +146,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 		# 			  			  paste0("SPMs_stats_DB_",Sys.Date(),"_",mission,".csv")))
 
 		readr::write_csv(SPM_tbl,
-					  path = file.path(L3,"SPM",
+					  file = file.path(L3,"SPM",
 					  			  paste0("SPMs_table_DB_",Sys.Date(),"_",mission,".csv")))
 
 
@@ -178,7 +187,7 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 
 		lighthouse::check_l3(project, L3, set="Ag")
 		readr::write_csv(Ag_table,
-					  path = file.path(L3,"Ag",
+					  file = file.path(L3,"Ag",
 					  			  paste0("Ag_DB_",Sys.Date(),"_",mission,".csv")))
 
 	} else if (any(str_detect(params, "Ag")) && !any(str_detect(handyParams, "^Ag$"))) {
@@ -259,15 +268,15 @@ l3_water_sample_gen <- function(project="",mission="",params=c("SPM","Ag","Ap"))
 
 		lighthouse::check_l3(project, L3, set="Ap")
 		readr::write_csv(Ap_table,
-					  path = file.path(L3,"Ap",
+					  file = file.path(L3,"Ap",
 					  			  paste0("Ap_DB_",Sys.Date(),"_",mission,".csv")))
 
 		readr::write_csv(Anap_table,
-					  path = file.path(L3,"Ap",
+					  file = file.path(L3,"Ap",
 					  			  paste0("Anap_DB_",Sys.Date(),"_",mission,".csv")))
 
 		readr::write_csv(Aph_table,
-					  path = file.path(L3,"Ap",
+					  file = file.path(L3,"Ap",
 					  			  paste0("Aph_DB_",Sys.Date(),"_",mission,".csv")))
 
 

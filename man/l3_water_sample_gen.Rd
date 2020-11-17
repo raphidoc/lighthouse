@@ -4,7 +4,7 @@
 \alias{l3_water_sample_gen}
 \title{l3_water_sample_gen}
 \usage{
-l3_water_sample_gen(project = "", mission = "", params = c("SPM", "Ag", "Ap"))
+l3_water_sample_gen(project, mission = "", params = c("SPM", "Ag", "Ap"))
 }
 \arguments{
 \item{project}{The top level folder of the project}

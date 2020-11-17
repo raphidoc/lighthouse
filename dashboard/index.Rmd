@@ -168,15 +168,15 @@ map <- leaflet(sd_map) %>%
         options = layersControlOptions(collapsed = TRUE)
       )
 
-filter_select(id = "ID", 
+Qfilter <- filter_select(id = "ID", 
               label = "Filter ID", 
               sharedData = sd,
 		    group = ~ID,
 		    allLevels = T
 		    )
 
-#bscols(widths = c(NA, 5) ,p ,map)
-map
+bscols(widths = c(2, NA) ,Qfilter ,map)
+
 ```
 
 Column {data-width=350}

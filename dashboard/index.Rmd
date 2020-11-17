@@ -159,7 +159,9 @@ map <- leaflet(sd_map) %>%
                                    '<b>ID</b>: ', ID, '<br>',
 				  			'<b>PID</b>: ', PID, '<br>',
 				  			'<b>DateTime</b>: ', DateTime, '<br>',
-				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>')) %>%
+				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>'),
+				  clusterOptions = markerClusterOptions()
+				  ) %>%
   addLayersControl(
         baseGroups = c("Positron", "Aerial", "Terrain"),
         overlayGroups = 'IOPs',

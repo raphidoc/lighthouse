@@ -3,8 +3,8 @@
 #' @author Raphael Mabit
 #'
 #' @description Quality Check SPM based on SPM, Bbp relationship (minimum requirement).
-#' Optional: Anap will be add to output QC plots if present, Other variable could be added as needed.
-#' IOPs are serached for in L3.
+#' Optional: CTD, Anap will be add to output QC plots if present, Other variable could be added as needed.
+#' Data are serached for in L3.
 #'
 #' @inheritParams l3_water_sample_gen
 #'
@@ -50,11 +50,14 @@ qc_spm <- function(project, mission, LabLog, SPM_tbl){
 
 		Bbp_tbl <- SPM_tbl %>% left_join(LabLog, by="SID") %>%
 			select(SID, ID, Replicate, Depth, SPM, PIM, POM) %>%
-			left_join(Bbp_tbl, by=c("ID"))
+			left_join(Bbp_tbl, by=c("ID")) %>% rename(Depth_SPM = Depth.x, Depth_Bbp = Depth.y)
 
 		# Keep closest depth between SPM (discrete) and Bbp (continous)
-		Bbp_SPM <- Bbp_tbl %>% filter(near(Depth.x, Depth.y, tol = 2)) %>% group_by(SID) %>%
-			filter(abs(Depth.x - Depth.y) == min(abs(Depth.x - Depth.y))) %>% ungroup()
+		Bbp_SPM <- Bbp_tbl %>% filter(near(Depth_SPM, Depth_Bbp, tol = 2)) %>% group_by(SID) %>%
+			filter(abs(Depth_SPM - Depth_Bbp) == min(abs(Depth_SPM - Depth_Bbp))) %>% ungroup()
+
+		# Add depth difference between Depth_SPM and Depth_Bbp
+		Bbp_SPM <- Bbp_SPM %>% mutate(Ddiff = abs(Depth_SPM-Depth_Bbp))
 
 		require(rmarkdown)
 
@@ -70,7 +73,13 @@ qc_spm <- function(project, mission, LabLog, SPM_tbl){
 			   file=report, append = T)
 
 		cat(paste0("```{r setup, include=FALSE, echo=TRUE, message=FALSE}\n",
-				"require(dplyr)\nrequire(tidyr)\nrequire(ggplot2)\nrequire(plotly)\nrequire(stargazer)\n",
+				"require(dplyr)\n",
+				"require(tidyr)\n",
+				"require(ggplot2)\n",
+				"require(plotly)\n",
+				"require(stargazer)\n",
+				"require(DT)\n",
+				"require(crosstalk)\n",
 				"```\n"), file = report, append = T)
 
 		cat(paste0("<center><font size='5'> Generated with lighthouse package __version: ",packageVersion("lighthouse"),"__ \n  \n",
@@ -79,14 +88,16 @@ qc_spm <- function(project, mission, LabLog, SPM_tbl){
 		# SPM vs Bbp
 		cat("\n# SPM vs Bbp \n\n", file = report, append=T)
 		cat(paste0("```{r,echo=FALSE, message=FALSE}\n",
-				"ggplotly(Bbp_SPM %>% ggplot(aes(log(SPM), log(Bbp_532), group=Replicate, color=SID)) + geom_point(alpha=1) + ylab('log(Bbp(532))[m-1]'))\n",
-				"```\n"), file = report, append = T)
+				 "Bbp_SPM_sd <- SharedData$new(Bbp_SPM %>% select(SID,ID,Replicate,Ddiff,SPM,PIM,POM,Bbp_532), key = ~SID)\n",
+				 "ggplotly(Bbp_SPM_sd %>% ggplot(aes(log(SPM), log(Bbp_532), group=Replicate, color=SID)) +\n",
+				 "geom_point(alpha=1) + ylab('log(Bbp(532))[m-1]'))\n",
+				 "datatable(Bbp_SPM_sd)\n",
+				 "```\n"), file = report, append = T)
 
 		dir.create(file.path(project,"ProLog", "SPM"), recursive = T, showWarnings = F)
 
 		# Create QC log file
-		QClog <- Bbp_SPM %>% select(ID,SID,Replicate,Depth.x,Depth.y,SPM,PIM,POM) %>%
-			rename(Depth.SPM = Depth.x, Depth.Bbp = Depth.y) %>%
+		QClog <- Bbp_SPM %>% select(ID,SID,Replicate,Depth_SPM,Depth_Bbp) %>%
 			mutate(QC = 1,
 				comment ="")
 
@@ -96,9 +107,11 @@ qc_spm <- function(project, mission, LabLog, SPM_tbl){
 	}
 
 
-# Anap if present ---------------------------------------------------------
+
+# Other helpful variables -------------------------------------------------
 
 	Anapfile <- list.files(file.path(project,"L3","WaterSample"), recursive = T, pattern = "Anap_DB", full.names = T)
+	CTDfile <- list.files(file.path(project,"L3","IOP"), recursive = T, pattern = "CTD_DB", full.names = T)
 
 	if (!purrr::is_empty(Anapfile)) {
 		Anap <- readr::read_csv(Anapfile)
@@ -115,14 +128,30 @@ qc_spm <- function(project, mission, LabLog, SPM_tbl){
 		cat(paste0("```{r,echo=FALSE, message=FALSE}\n",
 				 "ggplotly(Anap_Bbp_SPM %>% ggplot(aes(log(Bbp_532), log(Anap_620), group=Replicate, color=SID)) + geom_point(alpha=1))\n",
 				 "```\n"), file = report, append = T)
-
-		render(report, output_dir = file.path(project,"ProLog", "SPM"))
-		file.remove(report)
-
-	} else {
-		render(report, output_dir = file.path(project,"ProLog", "SPM"))
-		file.remove(report)
 	}
 
-	stop("Terminated")
+	if (!purrr::is_empty(CTDfile)) {
+		CTD <- readr::read_csv(CTDfile)
+
+		CTD_SID <- CTD %>% left_join(LabLog %>% select(ID,SID), by="ID")
+
+		cat("\n# CTD profile \n\n", file = report, append=T)
+		cat("\n## Temperature \n\n", file = report, append=T)
+		cat(paste0("```{r,echo=FALSE, message=FALSE}\n",
+				 "maxDepth <- max(CTD_SID['Depth'])\n",
+				 "ggplotly(CTD_SID %>% ggplot(aes(y=Depth, group=ID, color=SID)) + \n",
+				 "geom_path(aes(x=Temp)) + scale_y_reverse(breaks = seq.int(0,maxDepth,5)))\n",
+				 "```\n"), file = report, append = T)
+
+		cat("\n## PSU \n\n", file = report, append=T)
+		cat(paste0("```{r,echo=FALSE, message=FALSE}\n",
+				 "ggplotly(CTD_SID %>% ggplot(aes(y=Depth, group=ID, color=SID)) + \n",
+				 "geom_path(aes(x=PSU)) + scale_y_reverse(breaks = seq.int(0,maxDepth,5)))\n",
+				 "```\n"), file = report, append = T)
+	}
+
+	render(report, output_dir = file.path(project,"ProLog", "SPM"))
+	file.remove(report)
+
+	stop("QC files produced, Terminated")
 }

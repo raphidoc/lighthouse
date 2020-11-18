@@ -14,6 +14,8 @@ check_project <- function(project, L1="", L2="", set="") {
 
 	Pobjects <- list.files(project, recursive = F, full.names = T)
 
+	if (purrr::is_empty(Pobjects)) {stop("Check path, no objects found in :\n",project)}
+
 	# Check if project path is trully a project folder root
 	if (dir.exists(L1)) {
 

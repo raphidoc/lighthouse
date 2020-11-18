@@ -33,7 +33,7 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 	L1 <- file.path(project,"L1")
 	L3 <- file.path(project,"L3","WaterSample")
 
-	CheckList <-lighthouse::check_project(project, L1)
+	CheckList <- lighthouse::check_project(project, L1)
 	if (CheckList["Proot"][[1]] == F) {stop(project,"is not a project root folder")}
 
 	LogFile <- list.files(file.path(L1,"WaterSample"),pattern = "water_sample_log", full.names = T)
@@ -92,23 +92,38 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 			mutate(V = as.numeric(V), Wbase = as.numeric(Wbase), Wdry = as.numeric(Wdry), Wburn= as.numeric(Wburn) ) %>%
 			mutate(SPM = ((Wdry - Wbase) / V)*1000,
 				  PIM = SPM-(Wdry-Wburn),
-				  POM = SPM-PIM)
+				  POM = SPM-PIM) %>%
+			mutate(SPM= as.numeric(sprintf(SPM, fmt = '%#.2f')),
+				  PIM= as.numeric(sprintf(PIM, fmt = '%#.2f')),
+				  POM= as.numeric(sprintf(POM, fmt = '%#.2f')))
 
 		# QC request if no QC file are found in ProLog/SPM
 		QCfile <- list.files(file.path(project,"ProLog", "SPM"), pattern="QC[[:graph:]]+csv", full.names = T)
 
-		if (purrr::is_empty(QCfile)) {
-			message("\nNo QC file found, would you like to produce QC files ? y/n ")
-			QCrequest <- readline(prompt = "")
-			if (QCrequest == "y")
+		if (length(QCfile) == 1) {
+			QCSPM <- data.table::fread(QCfile, colClasses = "character", data.table = F) %>% mutate(QC=as.numeric(QC))
+			SPM_tbl <- SPM_tbl %>% right_join(QCSPM, by="SID")
+			SPM_tbl <- SPM_tbl %>% filter(QC>0)
+
+		} else if (length(QCfile) > 1) {
+			stop("more than one QC csv file found for SPM")
+
+		} else if (purrr::is_empty(QCfile)) {
+			message("\nNo QC files found, producing now ")
 			qc_spm(project, mission, LabLog, SPM_tbl)
+			# QCrequest <- readline(prompt = "")
+			# if (QCrequest == "y") {
+			# 	qc_spm(project, mission, LabLog, SPM_tbl)
+			# } else {
+			# 	message("No QC filter will be applied and all data will be used")
+			# }
 		}
 
 		SPM_nest <- SPM_tbl %>% select(SID, SPM, PIM, POM) %>% group_by(SID) %>% tidyr::nest()
 
-		SPMs <- SPM_nest %>% mutate(SPM= purrr::map_dbl(.x = data, ~ median(.x$SPM, na.rm = T)),
-							   PIM= purrr::map_dbl(.x = data, ~ median(.x$PIM, na.rm = T)),
-							   POM= purrr::map_dbl(.x = data, ~ median(.x$POM, na.rm = T)))
+		SPMs <- SPM_nest %>% mutate(SPM= purrr::map_dbl(.x = data, ~ mean(.x$SPM, na.rm = T)),
+							   PIM= purrr::map_dbl(.x = data, ~ mean(.x$PIM, na.rm = T)),
+							   POM= purrr::map_dbl(.x = data, ~ mean(.x$POM, na.rm = T)))
 
 		SPMs <- SPMs %>% mutate(SPM= as.numeric(sprintf(SPM, fmt = '%#.2f')),
 						    PIM= as.numeric(sprintf(PIM, fmt = '%#.2f')),

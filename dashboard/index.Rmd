@@ -134,11 +134,11 @@ subrrs <- long_sensorBand %>% filter(Sensor=="MSI") %>% select(matches("ID|Senso
 sd_rrs <- SharedData$new(subrrs, key = ~ID, group = "IOPs")
 
 submap <- wide_db #%>% select(matches("ID|PID|Station|Mission|DateTime|Lat|Lon|Depth|SPM"))
-sd_map <- SharedData$new(submap, group = "IOPs")
+sd_map <- SharedData$new(submap, key = ~ID, group = "IOPs")
 
 ```
 
-
+	
 <!-- Dashboard -->
 <!-- ============ -->
 

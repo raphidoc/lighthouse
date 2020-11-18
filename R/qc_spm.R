@@ -15,7 +15,8 @@
 
 qc_spm <- function(project, mission, LabLog, SPM_tbl){
 
-# Bbp values --------------------------------------------------------------
+
+# SPM vs Bbp --------------------------------------------------------------
 
 	BB3file <- list.files(file.path(project,"L3","IOP"), recursive = T, pattern = "BB3_DB", full.names = T)
 	BB9file <- list.files(file.path(project,"L3","IOP"), recursive = T, pattern = "BB9_DB", full.names = T)
@@ -85,7 +86,6 @@ qc_spm <- function(project, mission, LabLog, SPM_tbl){
 		cat(paste0("<center><font size='5'> Generated with lighthouse package __version: ",packageVersion("lighthouse"),"__ \n  \n",
 				"Date: __",Sys.time(),"__ GMT</font></center>\n"), file = report, append=T)
 
-		# SPM vs Bbp
 		cat("\n# SPM vs Bbp \n\n", file = report, append=T)
 		cat(paste0("```{r,echo=FALSE, message=FALSE}\n",
 				 "Bbp_SPM_sd <- SharedData$new(Bbp_SPM %>% select(SID,ID,Replicate,Ddiff,SPM,PIM,POM,Bbp_532), key = ~SID)\n",

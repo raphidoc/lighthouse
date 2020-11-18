@@ -2,6 +2,7 @@
 title: "lighthouse"
 output: 
   flexdashboard::flex_dashboard:
+    logo: logo.png
     theme: united
     #social: menu
     css: style2.css
@@ -138,8 +139,8 @@ sd_map <- SharedData$new(submap, group = "IOPs")
 ```
 
 
-Dashboard
-============
+<!-- Dashboard -->
+<!-- ============ -->
 
 Column {.sidebar}
 -----------------------------------------------------------------------

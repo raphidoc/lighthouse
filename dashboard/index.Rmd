@@ -7,13 +7,15 @@ output:
     css: style2.css
     source_code: embed
     orientation: columns
-    vertical_layout: scroll
+    vertical_layout: fill
+
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
 library(broom)
 library(DBI)
+library(DT)
 library(extrafont)
 library(dplyr)
 library(stringr)
@@ -124,21 +126,114 @@ IOPgate <-IOPgate %>%  group_by(ID)
 # 	ylab("m-1"))
 ```
 
-Column {data-width=650}
------------------------------------------------------------------------
-
-### Database map
-
-```{r, IOP graph with map, echo=FALSE, eval=T, warning=F}
-sd <- SharedData$new(IOPgate, key = ~ID, group = "IOPs")
+```{r sharedata objects}
+sd_IOPs <- SharedData$new(IOPgate, key = ~ID, group = "IOPs")
 
 subrrs <- long_sensorBand %>% filter(Sensor=="MSI") %>% select(matches("ID|Sensor|Band|Rrs|SPM"))
 sd_rrs <- SharedData$new(subrrs, key = ~ID, group = "IOPs")
 
-submap <- models_db %>% select(matches("ID|PID|Station|Mission|DateTime|Lat|Lon|Depth|SPM"))
-sd_map <- SharedData$new(submap, key = ~ID, group = "IOPs")
+submap <- wide_db #%>% select(matches("ID|PID|Station|Mission|DateTime|Lat|Lon|Depth|SPM"))
+sd_map <- SharedData$new(submap, group = "IOPs")
 
-p <- sd %>%
+```
+
+
+Dashboard
+============
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+### filters
+```{r}
+filter_checkbox(id = "mission", 
+              label = "Mission", 
+              sharedData = sd_map,
+		    group = ~Mission,
+		    inline = T
+		    )
+
+filter_select(id = "ID", 
+              label = "ID", 
+              sharedData = sd_map,
+		    group = ~ID
+		    )
+
+filter_select(id = "Station", 
+              label = "Station", 
+              sharedData = sd_map,
+		    group = ~Station
+		    )
+
+filter_slider(id = "Depth", 
+              label = "Station Depth", 
+              sharedData = sd_map,
+		    column = ~Depth
+		    )
+
+filter_slider(id = "SPM", 
+              label = "SPM concentration", 
+              sharedData = sd_map,
+		    column = ~SPM
+		    )
+
+filter_slider(id = "Ag_440", 
+              label = "CDOM concentration", 
+              sharedData = sd_map,
+		    column = ~Ag_440
+		    )
+```
+
+Column {data-width=550}
+-------------------------------------
+
+### map
+
+```{r map}
+map <- leaflet(sd_map) %>%
+	addScaleBar("bottomright") %>%
+	addProviderTiles(provider = providers$CartoDB.Positron, group = 'Positron') %>%
+	addProviderTiles("Esri.WorldImagery", group = 'Aerial') %>%
+	addProviderTiles("OpenTopoMap", group = 'Terrain') %>%
+	addCircleMarkers(group = "Stations",
+				  radius = 0.5,
+				  color = "red",
+				  popup = ~paste0('<h3>Station Details</h3><br>',
+                                   '<b>ID</b>: ', ID, '<br>',
+				  			'<b>PID</b>: ', PID, '<br>',
+				  			'<b>Station</b>: ', Station, '<br>',
+				  			'<b>DateTime</b>: ', DateTime, '<br>',
+				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
+				  			'<b>Depth</b>: ', Depth, ' [m-1]<br>')
+				  ) %>%
+  addLayersControl(
+        baseGroups = c("Positron", "Aerial", "Terrain"),
+        overlayGroups = 'Stations',
+        options = layersControlOptions(collapsed = TRUE)
+      )
+
+map
+
+#bscols(widths = c(2, NA) ,Qfilter ,map)
+
+# Cannot filter and cluster at the same time for now : https://github.com/rstudio/leaflet/issues/478
+# clusterOptions = markerClusterOptions(disableClusteringAtZoom = 10)
+```
+
+Row {.tabset}
+-------------------------------------
+
+
+### Rrs for MSI
+
+```{r}
+prrs <- sd_rrs %>% plot_ly(x = ~Band, y = ~Rrs, text=~ID, colors=~ID) %>% add_lines()
+prrs
+```
+
+### IOPs
+
+```{r}
+IOPs <- sd_IOPs %>%
 	plot_ly(x = ~Lambda, text=~ID) %>%
 	add_lines(y = ~A , color="A") %>%
 	add_lines(y = ~Ap , color="Ap") %>%
@@ -147,51 +242,23 @@ p <- sd %>%
 	add_lines(y = ~Ag , color="Ag") %>%
 	add_lines(y = ~Bb , color="Bb") %>%
 	add_lines(y = ~Bbp , color="Bbp")
-
-map <- leaflet(sd_map) %>%
-	addProviderTiles(provider = providers$CartoDB.Positron, group = 'Positron') %>%
-	addProviderTiles("Esri.WorldImagery", group = 'Aerial') %>%
-	addProviderTiles("OpenTopoMap", group = 'Terrain') %>%
-	addCircleMarkers(group = "IOPs",
-				  radius = 0.5,
-				  color = "red",
-				  popup = ~paste0('<h3>Station Details</h3><br>',
-                                   '<b>ID</b>: ', ID, '<br>',
-				  			'<b>PID</b>: ', PID, '<br>',
-				  			'<b>DateTime</b>: ', DateTime, '<br>',
-				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>'),
-				  clusterOptions = markerClusterOptions()
-				  ) %>%
-  addLayersControl(
-        baseGroups = c("Positron", "Aerial", "Terrain"),
-        overlayGroups = 'IOPs',
-        options = layersControlOptions(collapsed = TRUE)
-      )
-
-Qfilter <- filter_select(id = "ID", 
-              label = "Filter ID", 
-              sharedData = sd,
-		    group = ~ID,
-		    allLevels = T
-		    )
-
-bscols(widths = c(2, NA) ,Qfilter ,map)
-
+IOPs
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
+### <i class="fa fa-table" aria-hidden="true"></i> View grid display
 
-### Rrs for MSI
 
 ```{r}
-prrs <- sd_rrs %>% plot_ly(x = ~Band, y = ~Rrs, text=~ID) %>% add_lines()
-prrs
+datatable(sd_map,
+  extensions = c("Buttons", "ColReorder"),
+  escape = TRUE, rownames = FALSE,
+  class = "cell-border stripe",
+  options = list(
+    dom = "Bfrtip", buttons = c("csv"), deferRender = TRUE,
+    scrollY = 50,
+    pageLength = 15,
+    scroller = TRUE,
+    colReorder = TRUE
+  )
+)
 ```
-
-### IOPs
-
-```{r}
-p
-```
-

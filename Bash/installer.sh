@@ -6,7 +6,7 @@
 mirror="https://muug.ca/mirror/cran/"
 
 # uncomment the above line to install devtools
-#R -e "install.packages(\"devtools\", repos = \"$mirror\")"
+R -e "if (!require(devtools)) install.packages(\"devtools\", repos = \"$mirror\")"
 
 echo -e  "\nCops"
 GitRemote="git@srscm03.uqar.ca:mabr0002/Cops.git"

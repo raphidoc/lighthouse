@@ -11,6 +11,7 @@
 #'
 #' @import dplyr
 #' @import stringr
+#' @import rmarkdown
 #' @export
 
 l3_iop_gen <- function(project, mission=""){
@@ -70,6 +71,7 @@ l3_iop_gen <- function(project, mission=""){
       load(DataFile)
     } else {
       message("File :",DataFile," does not exist")
+      next()
     }
 
     devices <- purrr::map_lgl(IOP.fitted.down[-1], rlang::is_empty) == F
@@ -246,8 +248,6 @@ l3_iop_gen <- function(project, mission=""){
 
 # HTML report -------------------------------------------------------------
 
-  require(rmarkdown)
-
   report = paste0("Report_IOP_",Sys.Date(),"_",mission,".Rmd")
 
   cat(paste0("---\ntitle: '<center>IOP report for __",mission,"__ </center>'\n",
@@ -260,7 +260,13 @@ l3_iop_gen <- function(project, mission=""){
       file=report, append = T)
 
   cat(paste0("```{r setup, include=FALSE, echo=TRUE, message=FALSE}\n",
-             "require(dplyr)\nrequire(tidyr)\nrequire(ggplot2)\nrequire(latex2exp)\nrequire(plotly)\nrequire(stargazer)\n",
+             "require(dplyr)\n
+             require(tidyr)\n
+             require(ggplot2)\n
+             require(latex2exp)\n
+             require(plotly)\n
+             require(stargazer)\n
+             require(crosstalk)\n",
              "```\n"), file = report, append = T)
 
   cat(paste0("<center><font size='5'> Generated with Riops package __version: ",packageVersion("Riops"),"__ \n  \n",
@@ -277,26 +283,32 @@ l3_iop_gen <- function(project, mission=""){
                                 names_to = c(\".value\",\"Lambda\"),
                                 names_pattern = \"(.+)_(.+)\") %>%
     filter(!is.na(A)) %>%
-    mutate(depthKey = paste(ID,Depth,sep = \"_\"), Lambda = as.numeric(Lambda))
+    mutate(Lambda = as.numeric(Lambda), DepthKey= str_c(ID,Depth,sep='_'))
 
-ACS <- highlight_key(ACSplot, ~Depth, \"Depth filter\")
-    gg <- ACS %>%
-             ggplot(aes(Lambda, A, group=depthKey, color=ID)) +
+    ACS_A <- SharedData$new(ACSplot, key = ~Depth)
+    filter_select(id = 'Depth',
+              label = 'Station Depth',
+              sharedData = ACS_A,
+		    group = ~Depth
+		    )
+
+    gg <- ACS_A %>%
+             ggplot(aes(Lambda, A, group=DepthKey, color=ID)) +
              geom_line(alpha=0.5) + ylab(\"C [m-1]\") +
              scale_x_continuous(breaks = c(400,500,600,770))
 
-    plot <- highlight(ggplotly(gg, dynamicTicks=T), selectize = T, persistent=T, dynamic = F, opacityDim = 0.001)
+    plot <- ggplotly(gg, dynamicTicks=T)
     plot\n",
                "```\n"), file = report, append = T)
 
     # ACS A stats table
-    cat(paste0("```{r,echo=FALSE,results='asis'}\n",
-               "ACSstat <- ACS_DF %>% na.exclude %>% group_by(ID) %>%
-             filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(ACS_DF),
-                                                         \"([:alnum:]+_)?A(?=(_[:digit:]+))\")) \n",
-               "stargazer(as.data.frame(ACSstat),",
-               "type = \"html\", column.sep.width = \"5pt\", label = \"A summary\", title = \"A summary\")\n",
-               "```\n"), file = report, append = T)
+    # cat(paste0("```{r,echo=FALSE,results='asis'}\n",
+    #            "ACSstat <- ACS_DF %>% na.exclude %>% group_by(ID) %>%
+    #          filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(ACS_DF),
+    #                                                      \"([:alnum:]+_)?A(?=(_[:digit:]+))\")) \n",
+    #            "stargazer(as.data.frame(ACSstat),",
+    #            "type = \"html\", column.sep.width = \"5pt\", label = \"A summary\", title = \"A summary\")\n",
+    #            "```\n"), file = report, append = T)
 
     # ACS C  spectrum plot
     cat("\n## ACS C \n\n", file = report, append=T)
@@ -308,24 +320,30 @@ ACS <- highlight_key(ACSplot, ~Depth, \"Depth filter\")
     filter(!is.na(C)) %>%
     mutate(depthKey = paste(ID,Depth,sep = \"_\"), Lambda = as.numeric(Lambda))
 
-ACS <- highlight_key(ACSplot, ~Depth, \"Depth filter\")
-    gg <- ACS %>%
+    ACS_C <- SharedData$new(ACSplot, key = ~Depth)
+    filter_select(id = 'Depth',
+              label = 'Station Depth',
+              sharedData = ACS_C,
+		    group = ~Depth
+		    )
+
+    gg <- ACS_C %>%
              ggplot(aes(Lambda, C, group=depthKey, color=ID)) +
              geom_line(alpha=0.5) + ylab(\"C [m-1]\") +
              scale_x_continuous(breaks = c(400,500,600,770))
 
-    plot <- highlight(ggplotly(gg, dynamicTicks=TRUE), selectize = TRUE, persistent=T, dynamic = F, opacityDim = 0.001)
+    plot <- ggplotly(gg, dynamicTicks=TRUE)
     plot\n",
                "```\n"), file = report, append = T)
 
     # ACS C stats table
-    cat(paste0("```{r,echo=FALSE,results='asis'}\n",
-               "ACSstat <- ACS_DF %>% na.exclude %>% group_by(ID) %>%
-             filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(ACS_DF),
-                                                         \"([:alnum:]+_)?C(?=(_[:digit:]+))\")) \n",
-               "stargazer(as.data.frame(ACSstat),",
-               "type = \"html\", column.sep.width = \"5pt\", label = \"C summary\", title = \"C summary\")\n",
-               "```\n"), file = report, append = T)
+    # cat(paste0("```{r,echo=FALSE,results='asis'}\n",
+    #            "ACSstat <- ACS_DF %>% na.exclude %>% group_by(ID) %>%
+    #          filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(ACS_DF),
+    #                                                      \"([:alnum:]+_)?C(?=(_[:digit:]+))\")) \n",
+    #            "stargazer(as.data.frame(ACSstat),",
+    #            "type = \"html\", column.sep.width = \"5pt\", label = \"C summary\", title = \"C summary\")\n",
+    #            "```\n"), file = report, append = T)
   }
 
   # ASPH spectrum plot
@@ -339,23 +357,29 @@ ACS <- highlight_key(ACSplot, ~Depth, \"Depth filter\")
     filter(!is.na(A)) %>%
     mutate(depthKey = paste(ID,Depth,sep = \"_\"), Lambda = as.numeric(Lambda))
 
-ASPH <- highlight_key(ASPHplot, ~Depth, \"Depth filter\")
+    ASPH <- SharedData$new(ASPHplot, key = ~Depth)
+    filter_select(id = 'Depth',
+              label = 'Station Depth',
+              sharedData = ASPH,
+		    group = ~Depth
+		    )
+
     gg <- ASPH %>%
              ggplot(aes(Lambda, A, group=depthKey, color=ID)) +
              geom_line(alpha=0.5) + ylab(\"A [m-1]\") +
              scale_x_continuous(breaks = c(350,500,600,800))
 
-    plot <- highlight(ggplotly(gg, dynamicTicks=TRUE), selectize = TRUE, persistent=T, dynamic = F, opacityDim = 0.001)
+    plot <- ggplotly(gg, dynamicTicks=TRUE)
     plot\n",
                "```\n"), file = report, append = T)
 
     # ASPH stats table
-    cat(paste0("```{r,echo=FALSE,results='asis'}\n",
-               "Astat <- ASPH_DF %>% na.exclude %>% group_by(ID) %>%
-             filter(Depth == min(Depth)) %>% ungroup() %>% select(!Depth)\n",
-               "stargazer(as.data.frame(Astat),",
-               "type = \"html\", column.sep.width = \"5pt\", label = \"At summary\", title = \"At summary\")\n",
-               "```\n"), file = report, append = T)
+    # cat(paste0("```{r,echo=FALSE,results='asis'}\n",
+    #            "Astat <- ASPH_DF %>% na.exclude %>% group_by(ID) %>%
+    #          filter(Depth == min(Depth)) %>% ungroup() %>% select(!Depth)\n",
+    #            "stargazer(as.data.frame(Astat),",
+    #            "type = \"html\", column.sep.width = \"5pt\", label = \"At summary\", title = \"At summary\")\n",
+    #            "```\n"), file = report, append = T)
   }
 
   #BB9
@@ -371,25 +395,31 @@ ASPH <- highlight_key(ASPHplot, ~Depth, \"Depth filter\")
     filter(!is.na(Bb)) %>%
     mutate(depthKey = paste(ID,Depth,sep = \"_\"), Lambda = as.numeric(Lambda))
 
-    BB9 <- highlight_key(BB9plot, ~Depth, \"Depth filter\")
-    gg <- BB9 %>%
+    BB9_Bb <- SharedData$new(BB9plot, key = ~Depth)
+    filter_select(id = 'Depth',
+              label = 'Station Depth',
+              sharedData = BB9_Bb,
+		    group = ~Depth
+		    )
+
+    gg <- BB9_Bb %>%
              ggplot(aes(Lambda, Bb, group=depthKey, color=ID)) +
              geom_line(alpha=0.5) + ylab(\"Bb [m-1]\") +
              scale_x_continuous(breaks = c(400,500,600,730))
 
-    plot <- highlight(ggplotly(gg, dynamicTicks=TRUE), selectize = TRUE, persistent=T, dynamic = F, opacityDim = 0.001)
+    plot <- ggplotly(gg, dynamicTicks=TRUE)
     plot\n"
                ,
                "```\n"), file = report, append = T)
 
     # BB9 Bb stats table
-    cat(paste0("```{r,echo=FALSE,results='asis'}\n",
-               "BB9stat <- BB9_DF %>% na.exclude %>% group_by(ID) %>%
-             filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(BB9_DF),
-                                                         \"([:alnum:]+_)?Bb(?=(_[:digit:]+))\")) \n",
-               "stargazer(as.data.frame(BB9stat),",
-               "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
-               "```\n"), file = report, append = T)
+    # cat(paste0("```{r,echo=FALSE,results='asis'}\n",
+    #            "BB9stat <- BB9_DF %>% na.exclude %>% group_by(ID) %>%
+    #          filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(BB9_DF),
+    #                                                      \"([:alnum:]+_)?Bb(?=(_[:digit:]+))\")) \n",
+    #            "stargazer(as.data.frame(BB9stat),",
+    #            "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
+    #            "```\n"), file = report, append = T)
 
     # BB9 Bbp
     cat("\n## BB9 Bbp \n\n", file = report, append=T)
@@ -401,25 +431,31 @@ ASPH <- highlight_key(ASPHplot, ~Depth, \"Depth filter\")
     filter(!is.na(Bbp)) %>%
     mutate(depthKey = paste(ID,Depth,sep = \"_\"), Lambda = as.numeric(Lambda))
 
-    BB9 <- highlight_key(BB9plot, ~Depth, \"Depth filter\")
-    gg <- BB9 %>%
+    BB9_Bbp <- SharedData$new(BB9plot, key = ~Depth)
+    filter_select(id = 'Depth',
+              label = 'Station Depth',
+              sharedData = BB9_Bbp,
+		    group = ~Depth
+		    )
+
+    gg <- BB9_Bbp %>%
              ggplot(aes(Lambda, Bbp, group=depthKey, color=ID)) +
              geom_line(alpha=0.5) + ylab(\"Bbp [m-1]\") +
              scale_x_continuous(breaks = c(400,500,600,730))
 
-    plot <- highlight(ggplotly(gg, dynamicTicks=TRUE), selectize = TRUE, persistent=T, dynamic = F, opacityDim = 0.001)
+    plot <- ggplotly(gg, dynamicTicks=TRUE)
     plot\n"
                ,
                "```\n"), file = report, append = T)
 
     # BB9 Bbp stats table
-    cat(paste0("```{r,echo=FALSE,results='asis'}\n",
-               "BB9stat <- BB9_DF %>% na.exclude %>% group_by(ID) %>%
-             filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(BB9_DF),
-                                                         \"([:alnum:]+_)?Bbp(?=(_[:digit:]+))\")) \n",
-               "stargazer(as.data.frame(BB9stat),",
-               "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
-               "```\n"), file = report, append = T)
+    # cat(paste0("```{r,echo=FALSE,results='asis'}\n",
+    #            "BB9stat <- BB9_DF %>% na.exclude %>% group_by(ID) %>%
+    #          filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(BB9_DF),
+    #                                                      \"([:alnum:]+_)?Bbp(?=(_[:digit:]+))\")) \n",
+    #            "stargazer(as.data.frame(BB9stat),",
+    #            "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
+    #            "```\n"), file = report, append = T)
   }
 
   # CTD
@@ -462,25 +498,31 @@ ASPH <- highlight_key(ASPHplot, ~Depth, \"Depth filter\")
     filter(!is.na(Bb) & Bb > 0) %>%
     mutate(depthKey = paste(ID,Depth,sep = \"_\"), Lambda = as.numeric(Lambda))
 
-    HS6 <- highlight_key(HS6plot, ~Depth, \"Depth filter\")
-    gg <- HS6 %>%
+    HS6_Bb <- SharedData$new(HS6plot, key = ~Depth)
+    filter_select(id = 'Depth',
+              label = 'Station Depth',
+              sharedData = HS6_Bb,
+		    group = ~Depth
+		    )
+
+    gg <- HS6_Bb %>%
              ggplot(aes(Lambda, Bb, group=depthKey, color=ID)) +
              geom_line(alpha=0.5) + ylab(\"Bb [m-1]\") +
              scale_x_continuous(breaks = c(380,500,600,710))
 
-    plot <- highlight(ggplotly(gg, dynamicTicks=TRUE), selectize = TRUE, persistent=T, dynamic = F, opacityDim = 0.001)
+    plot <- ggplotly(gg, dynamicTicks=TRUE)
     plot\n"
                ,
                "```\n"), file = report, append = T)
 
     # HS6 Bb stats table
-    cat(paste0("```{r,echo=FALSE,results='asis'}\n",
-               "HS6stat <- HS6_DF %>% na.exclude %>% group_by(ID) %>%
-             filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(HS6_DF),
-                                                         \"([:alnum:]+_)?Bb(?=(_[:digit:]+))\")) \n",
-               "stargazer(as.data.frame(HS6stat),",
-               "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
-               "```\n"), file = report, append = T)
+    # cat(paste0("```{r,echo=FALSE,results='asis'}\n",
+    #            "HS6stat <- HS6_DF %>% na.exclude %>% group_by(ID) %>%
+    #          filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(HS6_DF),
+    #                                                      \"([:alnum:]+_)?Bb(?=(_[:digit:]+))\")) \n",
+    #            "stargazer(as.data.frame(HS6stat),",
+    #            "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
+    #            "```\n"), file = report, append = T)
 
     # Bbp Spectrum plot
     cat("\n## HS6 Bbp \n\n", file = report, append=T)
@@ -492,25 +534,31 @@ ASPH <- highlight_key(ASPHplot, ~Depth, \"Depth filter\")
     filter(!is.na(Bbp) & Bbp > 0) %>%
     mutate(depthKey = paste(ID,Depth,sep = \"_\"), Lambda = as.numeric(Lambda))
 
-    HS6 <- highlight_key(HS6plot, ~Depth, \"Depth filter\")
-    gg <- HS6 %>%
+    HS6_Bbp <- SharedData$new(HS6plot, key = ~Depth)
+    filter_select(id = 'Depth',
+              label = 'Station Depth',
+              sharedData = HS6_Bbp,
+		    group = ~Depth
+		    )
+
+    gg <- HS6_Bbp %>%
              ggplot(aes(Lambda, Bbp, group=depthKey, color=ID)) +
              geom_line(alpha=0.5) + ylab(\"Bbp [m-1]\") +
              scale_x_continuous(breaks = c(380,500,600,710))
 
-    plot <- highlight(ggplotly(gg, dynamicTicks=TRUE), selectize = TRUE, persistent=T, dynamic = F, opacityDim = 0.001)
+    plot <- ggplotly(gg, dynamicTicks=TRUE)
     plot\n"
                ,
                "```\n"), file = report, append = T)
 
     # HS6 Bb stats table
-    cat(paste0("```{r,echo=FALSE,results='asis'}\n",
-               "HS6stat <- HS6_DF %>% na.exclude %>% group_by(ID) %>%
-             filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(HS6_DF),
-                                                         \"([:alnum:]+_)?Bbp(?=(_[:digit:]+))\")) \n",
-               "stargazer(as.data.frame(HS6stat),",
-               "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
-               "```\n"), file = report, append = T)
+    # cat(paste0("```{r,echo=FALSE,results='asis'}\n",
+    #            "HS6stat <- HS6_DF %>% na.exclude %>% group_by(ID) %>%
+    #          filter(Depth == min(Depth)) %>% ungroup() %>% select(ID,Depth,str_subset(names(HS6_DF),
+    #                                                      \"([:alnum:]+_)?Bbp(?=(_[:digit:]+))\")) \n",
+    #            "stargazer(as.data.frame(HS6stat),",
+    #            "type = \"html\", column.sep.width = \"5pt\", label = \"Bb summary\", title = \"Bb summary\")\n",
+    #            "```\n"), file = report, append = T)
   }
 
 

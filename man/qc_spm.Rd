@@ -14,8 +14,8 @@ If none is providen, it is taken from the project name.}
 }
 \description{
 Quality Check SPM based on SPM, Bbp relationship (minimum requirement).
-Optional: Anap will be add to output QC plots if present, Other variable could be added as needed.
-IOPs are serached for in L3.
+Optional: CTD, Anap will be add to output QC plots if present, Other variable could be added as needed.
+Data are serached for in L3.
 }
 \author{
 Raphael Mabit

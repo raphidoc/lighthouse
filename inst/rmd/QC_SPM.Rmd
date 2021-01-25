@@ -1,0 +1,205 @@
+---
+title: 'SPM quality check'
+output:
+ flexdashboard::flex_dashboard:
+   theme: "spacelab"
+   source_code: embed
+   orientation: columns
+   vertical_layout: fill
+---
+
+```{r setup, include=FALSE, echo=TRUE, message=FALSE}
+require(dplyr)
+require(tidyr)
+require(plotly)
+require(DT)
+require(crosstalk)
+
+knitr::opts_chunk$set(echo = F, cache = F, message = F, warning = F)
+```
+
+```{r sharedata objects}
+GLOB <- GLOB %>% mutate(QC_sign= ifelse(QC>0, "o", "x"),
+				    QC_color= ifelse(QC>0, "cyan4", "red"))
+
+GLOB_sd <- SharedData$new(GLOB, key = ~SID, group = "SPM_QC")
+SPM_datatable_sd <- SharedData$new(SPM_datatable, key = ~SID, group = "SPM_QC")
+Station_stats_sd <- SharedData$new(Station_stats, key = ~SID, group = "SPM_QC")
+CTD_sd <- SharedData$new(CTD %>% group_by(ID), key = ~SID, group = "SPM_QC")
+```
+
+```{r qc_check}
+qc_check <- function(QC){
+	if(QC < 1){
+		 "x"
+	}
+	if(QC >= 1){
+		 "circle"
+	}
+}
+```
+
+Column {data-width=300}
+-------------------------------------
+
+### SPMs table
+
+```{r datatable}
+datatable(SPM_datatable_sd,
+  extensions = c("Buttons", "Scroller", "Select"),
+  filter = "top",
+  escape = TRUE, rownames = FALSE,
+  style = "bootstrap",
+  class = "compact",
+  height = 100,
+  options = list(
+    dom = "Brtip",
+    select = list(style = 'os', items = 'row'),
+    buttons = list(I("colvis"),"selectNone","csv"),
+    deferRender = TRUE,
+    scrollY = 100,
+    pageLength = 30,
+    scroller = TRUE
+  ),
+  selection = "none"
+)
+```
+
+### Sample statistic
+
+```{r}
+datatable(Station_stats_sd,
+  extensions = c("Buttons", "Scroller", "Select"),
+  filter = "top",
+  escape = TRUE, rownames = FALSE,
+  style = "bootstrap",
+  class = "compact",
+  height = 100,
+  options = list(
+    dom = "Brtip",
+    select = list(style = 'os', items = 'row'),
+    buttons = list(I("colvis"),"selectNone","csv"),
+    deferRender = TRUE,
+    scrollY = 100,
+    pageLength = 30,
+    scroller = TRUE
+  ),
+  selection = "none"
+)
+```
+ 
+Column {data-width=390}
+-------------------------------------
+
+### CTD profile 
+
+```{r CTD ,echo=FALSE, message=FALSE}
+
+Noax <- list(
+  title = "Depth",
+  zeroline = F,
+  showline = F,
+  showticklabels = T,
+  showgrid = F,
+  autorange = "reversed"
+)
+
+Temp <- CTD_sd %>% plot_ly(x=~Temp, y=~Depth, showlegend=T, connectgaps = F) %>% add_paths() %>%
+	layout(yaxis = Noax, xaxis = list(title = "\u00B0C"))
+
+PSU <- CTD_sd %>% plot_ly(x=~PSU, y=~Depth, showlegend=T, connectgaps = F) %>% add_paths() %>%
+	layout(yaxis = Noax, xaxis = list(title = "PSU")) 
+
+# filter_select(id = "SID",
+# 		    label = "SID",
+# 		    sharedData = CTD_sd,
+# 		    group = ~SID
+# 		    )
+
+subplot(Temp, PSU, shareY= T, titleY = T, titleX = T) %>%
+	highlight(on = "plotly_click", off = "plotly_doubleclick", selectize = F, dynamic = F, persistent = F)
+```
+
+Column {.tabset}
+-------------------------------------
+
+### SPM vs Anap 
+
+```{r SPM vs Anap ,echo=FALSE, message=FALSE}
+ax <- list(
+  zeroline = F,
+  showline = T,
+  showticklabels = T,
+  showgrid = T,
+  type = "log"
+)
+
+Anap_SPM_plot <- plot_ly(GLOB_sd, x=~SPM, y=~Anap_532,
+				    text=~paste0('<b>Station</b>: ', Station, '<br>',
+				    	'<b>ID</b>: ', ID, '\n',
+				     '<b>SID</b>: ', SID, '\n',
+				    	'<b>Replicate</b>: ', Replicate, '\n',
+				    	'<b>Comment</b>: ', Comment, '\n',
+				    	'<b>SPM</b>: ', SPM, '\n')) %>%
+	add_markers(symbol = ~as.character(QC), symbols = c("0" = "x", "1" = "o", "2" = "circle-x-open"),
+			  color = ~as.character(QC), colors = c("0" = "red", "1" = "cyan4", "2" = "orange")) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) %>%
+	layout(xaxis = ax, yaxis = ax)
+	
+Anap_SPM_plot
+```
+
+### SPM vs Aph
+
+```{r}
+Aph_SPM_plot <- plot_ly(GLOB_sd, x=~SPM, y=~Aph_532,
+				    text=~paste0('<b>Station</b>: ', Station, '<br>',
+				    	'<b>ID</b>: ', ID, '\n',
+				     '<b>SID</b>: ', SID, '\n',
+				    	'<b>Replicate</b>: ', Replicate, '\n',
+				    	'<b>Comment</b>: ', Comment, '\n',
+				    	'<b>SPM</b>: ', SPM, '\n')) %>%
+	add_markers(symbol = ~as.character(QC), symbols = c("0" = "x", "1" = "o", "2" = "circle-x-open"),
+			  color = ~as.character(QC), colors = c("0" = "red", "1" = "cyan4", "2" = "orange")) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) %>%
+	layout(xaxis = ax, yaxis = ax)
+	
+Aph_SPM_plot
+```
+
+### SPM vs Ap 
+
+```{r}
+Ap_SPM_plot <- plot_ly(GLOB_sd, x=~SPM, y=~Ap_532,
+				    text=~paste0('<b>Station</b>: ', Station, '<br>',
+				    	'<b>ID</b>: ', ID, '\n',
+				     '<b>SID</b>: ', SID, '\n',
+				    	'<b>Replicate</b>: ', Replicate, '\n',
+				    	'<b>Comment</b>: ', Comment, '\n',
+				    	'<b>SPM</b>: ', SPM, '\n')) %>%
+	add_markers(symbol = ~as.character(QC), symbols = c("0" = "x", "1" = "o", "2" = "circle-x-open"),
+			  color = ~as.character(QC), colors = c("0" = "red", "1" = "cyan4", "2" = "orange")) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) %>%
+	layout(xaxis = ax, yaxis = ax)
+	
+Ap_SPM_plot
+```
+
+### SPM vs Bbp 
+
+```{r SPM vs Bbp, echo=FALSE, message=FALSE}
+Bbp_SPM_plot <- plot_ly(GLOB_sd, x=~SPM, y=~Bbp_532,
+				    text=~paste0('<b>Station</b>: ', Station, '<br>',
+				    	'<b>ID</b>: ', ID, '\n',
+				     '<b>SID</b>: ', SID, '\n',
+				    	'<b>Replicate</b>: ', Replicate, '\n',
+				    	'<b>Comment</b>: ', Comment, '\n',
+				    	'<b>SPM</b>: ', SPM, '\n')) %>%
+	add_markers(symbol = ~as.character(QC), symbols = c("0" = "x", "1" = "o", "2" = "circle-x-open"),
+			  color = ~as.character(QC), colors = c("0" = "red", "1" = "cyan4", "2" = "orange")) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) %>%
+	layout(xaxis = ax, yaxis = ax)
+
+Bbp_SPM_plot
+```
+

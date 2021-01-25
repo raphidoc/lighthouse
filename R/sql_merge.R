@@ -4,7 +4,7 @@
 #'
 #' @description Merge multiple sqlite data bases into a new single one.
 #' Will perform the merge table and column wise (dplyr::bind_rows). A new integer
-#' primary key to ensure uniqueness and data tracebility. Old ID will be keep in PID column.
+#' primary key to ensure uniqueness and data traceability. Old ID will be keep in PID column.
 #'
 #' @import DBI
 #' @import dplyr
@@ -12,7 +12,7 @@
 #' @export
 
 
-sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "/mnt/D/Data/IML4")) {
+sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "/mnt/D/Data/PMZA-RIKI")) {
 	# have to detach package:stats to avoid C function mask
 	if (any(str_detect(search(), "package:stats"))){
 		detach("package:stats")
@@ -27,26 +27,26 @@ sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "
 
 	tablist <- c()
 	for (db in DBs) {
-		mission <- str_extract(last(str_split(db, "/")[[1]]),".+(?=.sqlite)")
-		assign(mission, dbConnect(RSQLite::SQLite(), db))
+		project <- str_extract(last(str_split(db, "/")[[1]]),".+(?=.sqlite)")
+		assign(project, dbConnect(RSQLite::SQLite(), db))
 
-		tabs <- dbListTables(eval(parse(text = mission)))
+		tabs <- dbListTables(eval(parse(text = paste0("`",project,"`"))))
 
 		for (tab in tabs) {
 			tablist <- append(tablist,tab)
 
 			qry_var <- paste0("SELECT * FROM ",tab,";")
-			qry <- dbSendQuery(eval(parse(text = mission)), qry_var)
+			qry <- dbSendQuery(eval(parse(text = paste0("`",project,"`"))), qry_var)
 			res <- dbFetch(qry)
 
 			# ID transform to PID (Project ID)
 			if (any(str_detect(names(res),"^ID$")) && any(str_detect(names(res),"^SID$"))) {
-				res <- res %>% mutate(PID= str_c(mission,ID,sep = "_"),
-								  SPID= str_c(mission,SID,sep = "_"))
+				res <- res %>% mutate(PID= str_c(project,ID,sep = "_"),
+								  SPID= str_c(project,SID,sep = "_"))
 			} else if (any(str_detect(names(res),"^ID$"))) {
-				res <- res %>% mutate(PID= str_c(mission,ID,sep = "_"))
+				res <- res %>% mutate(PID= str_c(project,ID,sep = "_"))
 			} else if (any(str_detect(names(res),"^SID$"))) {
-				res <- res %>% mutate(SPID= str_c(mission,SID,sep = "_"))
+				res <- res %>% mutate(SPID= str_c(project,SID,sep = "_"))
 			}
 
 			if (!exists(tab)) {
@@ -63,8 +63,8 @@ sql_merge <- function(projects = c("/mnt/D/Data/WISEMan", "/mnt/D/Data/CHONe", "
 	# create new integer primary key
 
 	data_synthesis <- data_synthesis %>% mutate(ID = seq_along(ID),
-									    Mission = str_extract(PID, "^[:alnum:]+(?=_)"))
-	data_synthesis <- data_synthesis %>% relocate(ID,PID,Mission)
+									    Project = str_extract(PID, "^[:alnum:]+(-[:alnum:]+)?(?=_)"))
+	data_synthesis <- data_synthesis %>% relocate(ID,PID,Project)
 
 	ID_frame <- data_synthesis %>% select(ID,PID)
 

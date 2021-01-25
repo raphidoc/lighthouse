@@ -1,0 +1,337 @@
+---
+title: "lighthouse"
+output: 
+  flexdashboard::flex_dashboard:
+    logo: logo.png
+    theme: united
+    #social: menu
+    css: style2.css
+    source_code: embed
+    orientation: columns
+    vertical_layout: fill
+
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(DT)
+library(stringr)
+library(lubridate)
+library(leaflet)
+library(crosstalk)
+library(plotly)
+library(purrr)
+library(leafem)
+#library(mapview)
+library(leaflet.extras)
+library(htmltools)
+library(leafpop)
+
+
+knitr::opts_knit$set(root.dir = "~/R/lighthouse/R/")
+knitr::opts_chunk$set(echo = F, cache = F, message = F, warning = F)
+```
+
+```{r load data,}
+load("/mnt/D/Documents/Maitrise/Paper/Models/Data/models_db.RData")
+
+wide_db <- models_db %>% select(!c("data")) %>% unnest(cols = c(OLI,S2A), names_sep="_") %>%
+	dplyr::relocate(ID,PID,Station,Mission,DateTime,Lat,Lon,Depth)
+
+# add DataLog to plot data with action taken (QC, and comments)
+DataLog <- readr::read_csv("/mnt/D/Documents/Maitrise/Paper/Models/DataLog.csv")
+
+wide_db <- wide_db %>% left_join(DataLog %>% select(ID,QC_SPM,QC_Ag,Comment), by="ID")
+
+wide_db <- wide_db %>% rename_with(~str_replace(.,"S2A","MSI"), starts_with("S2A"))
+
+
+long_sensor <- wide_db %>% pivot_longer(cols = all_of(str_subset(names(wide_db),
+										"OLI|MSI")),
+							  names_to = c("Sensor",".value"),
+							  names_pattern = "(.+)_(.+)$")
+
+long_sensorBand <- long_sensor %>% pivot_longer(cols = all_of(str_subset(names(long_sensor),
+										"^[:digit:]")),
+							  names_to = "Band",
+							  values_to = "Rrs",
+							  values_drop_na = T
+							  ) %>% mutate(Band = as.numeric(Band))
+
+Sensor_nest <- long_sensor %>% group_by(Sensor) %>% nest()
+```
+
+```{r interpolation of iop to common wl 394-700 nm}
+iop_long <- wide_db %>% pivot_longer(cols = all_of(str_subset(names(wide_db),
+										"A_|Ap_|Aph_|Ag_|Anap_|Bbp_|Bb_")),
+							  names_to = c(".value","Lambda"),
+							  names_pattern = "(.+)_(.+)",
+							  values_drop_na = T
+							  )
+
+
+iop_nest <- iop_long %>% arrange(ID,Lambda) %>%
+	group_by(ID) %>% nest()
+
+possibleApprox <- purrr::possibly(approx, otherwise=NA)
+
+Approxiop <- iop_nest %>%
+	mutate(
+		Lambda = purrr::map(.x = data, ~ data.frame(Lambda = .x$Lambda)),
+		A = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$A,.x$Lambda, na.rm = T))),
+		Ap = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$Ap,.x$Lambda, na.rm = T))),
+		Aph = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$Aph,.x$Lambda, na.rm = T))),
+		Anap = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$Anap,.x$Lambda, na.rm = T))),
+		Ag = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$Ag,.x$Lambda, na.rm = T))),
+		Bbp = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$Bbp,.x$Lambda, na.rm = T))),
+		Bb = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$Bb,.x$Lambda, na.rm = T))),
+		  ) %>%
+	select(ID,Lambda,A,Ap,Aph,Anap,Ag,Bbp,Bb)
+
+Approxiop <- Approxiop %>%
+	dplyr::filter(purrr::map_lgl(A, ~ !is_empty(.)) | purrr::map_lgl(Ap, ~ !is_empty(.)) | purrr::map_lgl(Aph, ~ !is_empty(.)) | purrr::map_lgl(Anap, ~ !is_empty(.)) | purrr::map_lgl(Ag, ~ !is_empty(.)) | purrr::map_lgl(Bbp, ~ !is_empty(.)) | purrr::map_lgl(Bb, ~ !is_empty(.)))
+
+Approxiop <- Approxiop %>% unnest(cols = c(Lambda, A, Ap, Aph, Anap, Ag, Bbp, Bb), names_sep="_") # %>% na.omit()
+
+Approxiop <- Approxiop %>% select(A_x,!contains("x")) %>% mutate(
+	Lambda = as.numeric(Lambda_Lambda),
+	A = A_y,
+	Ap = Ap_y,
+	Aph = Aph_y,
+	Anap = Anap_y,
+	Ag = Ag_y,
+	Bbp = Bbp_y,
+	Bb = Bb_y
+) %>% select(!contains(c("y","x","Lambda_Lambda")))
+
+# Rrs at 9 wl give 255 731 row ... rather slow but working
+# iopgate <- long_sensorBand %>% filter(Sensor=="MSI") %>%
+# 	select(matches("ID|ROI|Sensor|Band|Rrs|SPM|Ag_440")) %>%
+# 	right_join(Approxiop, by="ID") %>%
+# 	na.omit() %>% ungroup()
+
+
+iopgate <- wide_db %>%
+	select(ID,PID,Project,Station,Depth,SPM,QC_SPM,QC_Ag) %>%
+	right_join(Approxiop, by="ID") %>% filter(Lambda > 350)
+```
+
+```{r sharedata objects}
+sd_iops <- SharedData$new(iopgate, key = ~str_pad(ID,3,pad = "0"), group = "iops")
+
+submap <- wide_db %>% mutate(DateTime = as.POSIXct(DateTime, tz='UTC', format = "%Y-%m-%dT%H:%M:%S")) %>%
+	select(ID,PID,Mission,Station,DateTime,SPM,Depth,Lat,Lon,Ag_440,SID)%>%
+	group_by(ID)
+sd_map <- SharedData$new(submap, key = ~str_pad(ID,3,pad = "0"), group = "iops")
+
+subrrs <- long_sensorBand %>% #dplyr::filter(Sensor=="MSI") %>%
+	select(ID,PID,Station,Depth,Sensor,Band,Rrs,SPM,QC_SPM,QC_Ag) %>%
+	group_by(ID)
+sd_rrs <- SharedData$new(subrrs, key = ~str_pad(ID,3,pad = "0"), group = "iops")
+
+subtab <- wide_db %>%
+	mutate(ID = str_pad(ID,3,pad = "0"),
+		  DateTime = as.POSIXct(DateTime, tz='UTC', format = "%Y-%m-%dT%H:%M:%S")) %>%
+	select(ID,SID,PID,SPID,Station,DateTime,QC_SPM,QC_Ag,Comment) %>% group_by(ID)
+
+sd_tab <- SharedData$new(subtab, key = ~str_pad(ID,3,pad = "0"), group = "iops")
+```
+
+	
+<!-- Dashboard -->
+<!-- ============ -->
+
+Row {.sidebar}
+-----------------------------------------------------------------------
+### filters
+```{r}
+filter_checkbox(id = "mission",
+              label = "Mission",
+              sharedData = sd_map,
+		    group = ~Mission,
+		    inline = T
+		    )
+
+filter_select(id = "PID",
+              label = "PID",
+              sharedData = sd_map,
+		    group = ~PID
+		    )
+
+filter_select(id = "Station",
+              label = "Station",
+              sharedData = sd_map,
+		    group = ~Station
+		    )
+# not working ... some bug in display
+# filter_slider(id = "DateTime",
+#               label = "",
+#               sharedData = sd_map,
+# 		    column = ~DateTime, step = NULL, width = '100%', dragRange = TRUE
+# 		    )
+
+filter_select(id = "DateTime",
+              label = "Date",
+              sharedData = sd_map,
+		    group = ~lubridate::date(DateTime)
+		    )
+
+filter_slider(id = "Depth",
+              label = "Station Depth",
+              sharedData = sd_map,
+		    column = ~Depth
+		    )
+
+filter_slider(id = "SPM",
+              label = "SPM concentration",
+              sharedData = sd_map,
+		    column = ~SPM
+		    )
+
+filter_slider(id = "Ag_440",
+              label = "CDOM concentration",
+              sharedData = sd_map,
+		    column = ~Ag_440
+		    )
+```
+
+Column {data-width=450}
+-------------------------------------
+
+### <i class="fa fa-map" aria-hidden="true"></i> map
+
+```{r map}
+
+# Temp <- CTD_sd %>% plot_ly(x=~Temp, y=~Depth, showlegend=T, connectgaps = F) %>% add_paths() %>%
+# 	layout(yaxis = Noax, xaxis = list(title = "\u00B0C"))
+# 
+# PSU <- CTD_sd %>% plot_ly(x=~PSU, y=~Depth, showlegend=T, connectgaps = F) %>% add_paths() %>%
+# 	layout(yaxis = Noax, xaxis = list(title = "PSU")) 
+# 
+# CTD <- subplot(Temp, PSU, shareY= T, titleY = T, titleX = T) %>%
+# 	highlight(on = "plotly_click", off = "plotly_doubleclick", selectize = F, dynamic = F, persistent = F)
+# 
+# CTD <- bscols()
+
+#leafpop::popupGraph should be the way to add a plot_ly graph as leaflet popup
+
+link <- "/mnt/D/Data/WISEMan/L2/066/COPS_Kildir/PDF/WISE_CAST_006_190821_143528_URC.csv.pdf"
+
+map <- leaflet(sd_map) %>%
+	addScaleBar("bottomright") %>% leafem::addMouseCoordinates() %>%
+	addProviderTiles(provider = providers$CartoDB.Positron, group = 'Positron') %>%
+	addProviderTiles("Esri.WorldImagery", group = 'Aerial') %>%
+	addProviderTiles("OpenTopoMap", group = 'Terrain') %>%
+	addAwesomeMarkers(lat = ~Lat, lng = ~Lon, 
+				  group = "Stations",
+				  label = ~paste0("PID: ", PID),
+				  popup = ~paste0('<h3>Station Details</h3><br>',
+                                   '<b>ID</b>: ', ID, '<br>',
+				  			'<b>SID</b>: ', str_c(SID, collapse = ", "), '<br>',
+				  			'<b>PID</b>: ', PID, '<br>',
+				  			'<b>Station</b>: ', Station, '<br>',
+				  			'<b>DateTime</b>: ', DateTime, '<br>',
+				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
+				  			'<b>Depth</b>: ', Depth, ' [m-1]<br>',
+				  			paste0('<a href="',link,'">COPS Report:</a>')
+				  			)
+				  ) %>%
+  addLayersControl(
+        baseGroups = c("Positron", "Aerial", "Terrain"),
+        overlayGroups = 'Stations',
+        options = layersControlOptions(collapsed = TRUE)
+      ) %>%
+  addEasyButton(easyButton(
+    icon="fa-globe", title="Zoom to Level 1",
+    onClick=JS("function(btn, map){ map.setZoom(1); }"))) %>%
+  addEasyButton(easyButton(
+    icon="fa-crosshairs", title="Locate Me",
+    onClick=JS("function(btn, map){ map.locate({setView: true}); }"))) %>% 
+  addSearchFeatures(targetGroups = "Stations")
+
+map
+
+#bscols(widths = c(2, NA) ,Qfilter ,map)
+
+# Cannot filter and cluster at the same time for now : https://github.com/rstudio/leaflet/issues/478
+# clusterOptions = markerClusterOptions(disableClusteringAtZoom = 10)
+```
+
+### <i class="fa fa-table" aria-hidden="true"></i> data table
+
+```{r}
+datatable(sd_tab,
+  extensions = c("Buttons", "Scroller", "Select"),
+  filter = "top",
+  escape = TRUE, rownames = FALSE,
+  style = "bootstrap",
+  class = "compact",
+  height = 100,
+  options = list(
+    dom = "Brtip",
+    select = list(style = 'os', items = 'row'),
+    buttons = list(I("colvis"),"selectNone","csv"),
+    columnDefs = list(
+        list(
+          visible = FALSE,
+          targets = c(1,3,5,7:8)
+        )),
+    deferRender = TRUE,
+    scrollY = 10,
+    pageLength = 10,
+    scroller = TRUE
+  ),
+  selection = "none"
+)
+```
+
+
+Column {.tabset}
+-------------------------------------
+
+### Rrs
+
+```{r Rrs ,echo=FALSE, message=FALSE}
+prrs <- plot_ly(sd_rrs, x = ~Band, y = ~Rrs, split = ~Sensor,
+					  text=~paste0(
+					  		'<b>ID</b>: ', ID, '<br>',
+				  			'<b>PID</b>: ', PID, '<br>',
+				  			'<b>Station</b>: ', Station, '<br>',
+					  		'<b>DateTime</b>: ', DateTime, '<br>',
+				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
+				  			'<b>Depth</b>: ', Depth, ' [m-1]<br>',
+				  			'<b>QC</b>: ', QC_SPM, '<br>',
+					  		'<b>Comment</b>: ', Comment, '<br>'
+				  			)) %>%
+	add_lines(color = ~as.character(QC_SPM), colors = c("0" = "red", "1" = "steelblue3"), showlegend= T) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F)
+
+prrs
+```
+
+### IOPs
+
+```{r IOPs, echo=FALSE, message=FALSE}
+
+piops <- plot_ly(sd_iops, x = ~Lambda, visible = "legendonly", # linetype = ~as.character(QC_SPM), linetypes = c("0" = "dash", "1" = "solid"), showlegend = T,
+		    text=~paste0(
+				  '<b>PID</b>: ', PID, '<br>',
+				  '<b>Station</b>: ', Station, '<br>',
+				  '<b>DateTime</b>: ', DateTime, '<br>',
+				  '<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
+				  '<b>Depth</b>: ', Depth, ' [m-1]<br>'
+				  '<b>QC</b>: ', QC_Ag, '<br>',
+				  '<b>Comment</b>: ', Comment, '<br>'
+				  )) %>%
+	add_lines(y = ~A , color="A", showlegend = T) %>%
+	add_lines(y = ~Ap , color="Ap", showlegend = T) %>%
+	add_lines(y = ~Aph , color="Aph", showlegend = T) %>%
+	add_lines(y = ~Anap , color="Anap", showlegend = T) %>%
+	add_lines(y = ~Ag , color="Ag", showlegend = T) %>%
+	add_lines(y = ~Bb , color="Bb", showlegend = T) %>%
+	add_lines(y = ~Bbp , color="Bbp", showlegend = T) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) 
+
+piops
+```

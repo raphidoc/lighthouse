@@ -36,6 +36,10 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 	CheckList <- lighthouse::check_project(project, L1)
 	if (CheckList["Proot"][[1]] == F) {stop(project,"is not a project root folder")}
 
+	SyntheFile = list.files(path = project, pattern = "data_synthesis|Data_Synthesis", full.names = T)
+
+	Synthesis <- data.table::fread(SyntheFile, colClasses = "character", data.table = F)
+
 	LogFile <- list.files(file.path(L1,"WaterSample"),pattern = "water_sample_log", full.names = T)
 
 	if (length(LogFile) == 0) {
@@ -93,6 +97,7 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 			mutate(SPM = ((Wdry - Wbase) / V)*1000,
 				  PIM = SPM-(Wdry-Wburn),
 				  POM = SPM-PIM) %>%
+			# Should do a mutate_if to avoid warning caused by NA?
 			mutate(SPM= as.numeric(sprintf(SPM, fmt = '%#.2f')),
 				  PIM= as.numeric(sprintf(PIM, fmt = '%#.2f')),
 				  POM= as.numeric(sprintf(POM, fmt = '%#.2f')))
@@ -102,7 +107,17 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 
 		if (length(QCfile) == 1) {
 			QCSPM <- data.table::fread(QCfile, colClasses = "character", data.table = F) %>% mutate(QC=as.numeric(QC))
-			SPM_tbl <- SPM_tbl %>% right_join(QCSPM, by="SID")
+
+			SPM_tbl <- SPM_tbl %>% left_join(QCSPM %>% select(SID,Replicate,QC,Comment), by=c("SID","Replicate"))
+
+			message()
+
+			QCrequest <- askYesNo("SPM QC file found, update QC report ?")
+			if (!is.na(QCrequest) && QCrequest) {
+				# will update QC report with QC info and overwrite L3 SPM
+				qc_spm(project, mission, LabLog, Synthesis, SPM_tbl, QCSPM)
+			}
+
 			SPM_tbl <- SPM_tbl %>% filter(QC>0)
 
 		} else if (length(QCfile) > 1) {
@@ -110,7 +125,7 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 
 		} else if (purrr::is_empty(QCfile)) {
 			message("\nNo QC files found, producing now ")
-			qc_spm(project, mission, LabLog, SPM_tbl)
+			qc_spm(project, mission, LabLog, Synthesis, SPM_tbl)
 			# QCrequest <- readline(prompt = "")
 			# if (QCrequest == "y") {
 			# 	qc_spm(project, mission, LabLog, SPM_tbl)
@@ -152,17 +167,17 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 		# 	purrr::map_dbl(. = data , ~ as.numeric(sprintf(., fmt = '%#.2f')))
 
 		lighthouse::check_l3(project, L3, set="SPM")
-		readr::write_csv(SPMs,
+		write.csv(SPMs,
 					  file = file.path(L3,"SPM",
-					  			  paste0("SPMs_DB_",Sys.Date(),"_",mission,".csv")))
+					  			  paste0("SPMs_DB_",Sys.Date(),"_",mission,".csv")), row.names = F)
 
 		# readr::write_csv(SPMs_stats,
 		# 			  path = file.path(L3,"SPM",
 		# 			  			  paste0("SPMs_stats_DB_",Sys.Date(),"_",mission,".csv")))
 
-		readr::write_csv(SPM_tbl,
+		write.csv(SPM_tbl,
 					  file = file.path(L3,"SPM",
-					  			  paste0("SPMs_table_DB_",Sys.Date(),"_",mission,".csv")))
+					  			  paste0("SPMs_table_DB_",Sys.Date(),"_",mission,".csv")), row.names = F)
 
 
 	} else if (any(str_detect(params, "SPM")) && !any(str_detect(handyParams, "^SPM$"))) {
@@ -185,9 +200,9 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 		for (i in seq_along(DataFiles)){
 			load(DataFiles[i])
 
-			ID <- Ag$ID
+			ID <- str_extract(Ag$ID, "[:digit:]+")
 			wl <- Ag$Lambda
-			Agdata <- Ag$Ag
+			Agdata <- Ag$Ag.fitted
 
 			temp <- data.frame(ID,t(Agdata))
 			names(temp) <- c("SID",paste0("Ag_",wl))
@@ -195,15 +210,15 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 			if(check_wl_consistency(Ag_table, temp, DataFiles, i)) {
 				tryCatch(Ag_table <- bind_rows(Ag_table, temp))
 			} else {
-				Ag_table <- rbind(Ag_table, temp)
+				Ag_table <- bind_rows(Ag_table, temp)
 			}
 
 		}
 
 		lighthouse::check_l3(project, L3, set="Ag")
-		readr::write_csv(Ag_table,
+		write.csv(Ag_table,
 					  file = file.path(L3,"Ag",
-					  			  paste0("Ag_DB_",Sys.Date(),"_",mission,".csv")))
+					  			  paste0("Ag_DB_",Sys.Date(),"_",mission,".csv")), row.names = F)
 
 	} else if (any(str_detect(params, "Ag")) && !any(str_detect(handyParams, "^Ag$"))) {
 		warning("Ag data base requested but no 'Ag' folder found under WaterSample, skiping.\n", immediate. = T)
@@ -239,9 +254,11 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 				temp <- data.frame(ID,t(Ap_data))
 				names(temp) <- c("SID",paste0("Ap_",wl))
 
-				if(check_wl_consistency(Ap_table, temp, DataFiles, i)) {next()}
-
-				Ap_table <- rbind(Ap_table, temp)
+				if(check_wl_consistency(Ap_table, temp, DataFiles, i)) {
+					tryCatch(Ap_table <- bind_rows(Ap_table, temp))
+				} else {
+					Ap_table <- bind_rows(Ap_table, temp)
+				}
 			}
 
 			# Anap
@@ -256,9 +273,11 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 				temp <- data.frame(ID,t(Anap_data))
 				names(temp) <- c("SID",paste0("Anap_",wl))
 
-				if(check_wl_consistency(Anap_table, temp, DataFiles, i)) {next()}
-
-				Anap_table <- rbind(Anap_table, temp)
+				if(check_wl_consistency(Anap_table, temp, DataFiles, i)) {
+					tryCatch(Anap_table <- bind_rows(Anap_table, temp))
+				} else {
+					Anap_table <- bind_rows(Anap_table, temp)
+				}
 			}
 
 
@@ -275,24 +294,26 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 				temp <- data.frame(ID,t(Aph_data))
 				names(temp) <- c("SID",paste0("Aph_",wl))
 
-				#if(check_wl_consistency(Aph_data, temp, DataFiles, i)) {next()}
-
-				Aph_table <- rbind(Aph_table, temp)
+				if(check_wl_consistency(Aph_data, temp, DataFiles, i)) {
+					tryCatch(Aph_table <- bind_rows(Aph_table, temp))
+				} else {
+					Aph_table <- bind_rows(Aph_table, temp)
+				}
 			}
 		}
 
 		lighthouse::check_l3(project, L3, set="Ap")
-		readr::write_csv(Ap_table,
+		write.csv(Ap_table,
 					  file = file.path(L3,"Ap",
-					  			  paste0("Ap_DB_",Sys.Date(),"_",mission,".csv")))
+					  			  paste0("Ap_DB_",Sys.Date(),"_",mission,".csv")), row.names = F)
 
-		readr::write_csv(Anap_table,
+		write.csv(Anap_table,
 					  file = file.path(L3,"Ap",
-					  			  paste0("Anap_DB_",Sys.Date(),"_",mission,".csv")))
+					  			  paste0("Anap_DB_",Sys.Date(),"_",mission,".csv")), row.names = F)
 
-		readr::write_csv(Aph_table,
+		write.csv(Aph_table,
 					  file = file.path(L3,"Ap",
-					  			  paste0("Aph_DB_",Sys.Date(),"_",mission,".csv")))
+					  			  paste0("Aph_DB_",Sys.Date(),"_",mission,".csv")), row.names = F)
 
 
 	} else if (any(str_detect(params, "Ap")) && !any(str_detect(handyParams, "^Ap$"))) {
@@ -300,16 +321,6 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 	}
 }
 
-
-check_wl_consistency <- function(df,temp,DataFiles,i) {
-	if (length(names(df)) != 0 && (length(names(df)) != length(names(temp)) ||
-								  names(df) != names(temp))) {
-		warning("Different wavelengths detected between:\n",
-			   DataFiles[i-1],"\nand\n",DataFiles[i],"\n\n Trying bind_rows on: ",DataFiles[i],"\n", immediate. = T)
-		T
-	} else {F}
-
-}
 
 
 #boot_median <- function(d,i) {median(d[i])}

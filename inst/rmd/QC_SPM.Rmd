@@ -134,7 +134,7 @@ ax <- list(
   type = "log"
 )
 
-Anap_SPM_plot <- plot_ly(GLOB_sd, x=~SPM, y=~Anap_532,
+Anap_SPM_plot <- plot_ly(GLOB_sd, x=~SPM, y=~Anap_440,
 				    text=~paste0('<b>Station</b>: ', Station, '<br>',
 				    	'<b>ID</b>: ', ID, '\n',
 				     '<b>SID</b>: ', SID, '\n',

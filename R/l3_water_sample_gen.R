@@ -49,7 +49,7 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 			"\n",str_c(LogFile, collapse = "\n"))
 	}
 
-	LabLog <- data.table::fread(LogFile, colClasses = "character", data.table = F) %>% mutate(Depth=as.numeric(Depth))
+	LabLog <- data.table::fread(LogFile, colClasses = "character", data.table = F) %>% mutate(Zsample=as.numeric(Zsample))
 
 	handyParams <- list.dirs(file.path(L1,"WaterSample"), recursive = F ,full.names = F)
 

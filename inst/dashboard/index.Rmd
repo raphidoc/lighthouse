@@ -37,7 +37,8 @@ knitr::opts_chunk$set(echo = F, cache = F, message = F, warning = F)
 load("/mnt/D/Documents/Maitrise/Paper/Models/Data/models_db.RData")
 
 wide_db <- models_db %>% select(!c("data")) %>% unnest(cols = c(OLI,S2A), names_sep="_") %>%
-	dplyr::relocate(ID,PID,Station,Mission,DateTime,Lat,Lon,Depth)
+	mutate(Region = ifelse(str_detect(Project,"CHONe|WISE|PMZA"),"EGSL","JB")) %>%
+	dplyr::relocate(ID,PID,Station,Region,DateTime,Lat,Lon,Zstation,Zsecchi) 
 
 # add DataLog to plot data with action taken (QC, and comments)
 DataLog <- readr::read_csv("/mnt/D/Documents/Maitrise/Paper/Models/DataLog.csv")
@@ -52,12 +53,12 @@ long_sensor <- wide_db %>% pivot_longer(cols = all_of(str_subset(names(wide_db),
 							  names_to = c("Sensor",".value"),
 							  names_pattern = "(.+)_(.+)$")
 
-long_sensorBand <- long_sensor %>% pivot_longer(cols = all_of(str_subset(names(long_sensor),
-										"^[:digit:]")),
-							  names_to = "Band",
-							  values_to = "Rrs",
-							  values_drop_na = T
-							  ) %>% mutate(Band = as.numeric(Band))
+long_sensorBand <- wide_db %>% pivot_longer(cols = all_of(str_subset(names(wide_db),
+										"OLI|MSI|OLCI")),
+							  names_to = c("Sensor","Band","Cwl"),
+							  values_to = "Rrs",	
+							  values_drop_na = T,
+							  names_sep = "_") %>% mutate(Cwl = as.numeric(Cwl))
 
 Sensor_nest <- long_sensor %>% group_by(Sensor) %>% nest()
 ```
@@ -113,7 +114,7 @@ Approxiop <- Approxiop %>% select(A_x,!contains("x")) %>% mutate(
 
 
 iopgate <- wide_db %>%
-	select(ID,PID,Project,Station,Depth,SPM,QC_SPM,QC_Ag) %>%
+	select(ID,PID,Project,Station,Zstation,DateTime,Comment,SPM,QC_SPM,QC_Ag) %>%
 	right_join(Approxiop, by="ID") %>% filter(Lambda > 350)
 ```
 
@@ -121,19 +122,19 @@ iopgate <- wide_db %>%
 sd_iops <- SharedData$new(iopgate, key = ~str_pad(ID,3,pad = "0"), group = "iops")
 
 submap <- wide_db %>% mutate(DateTime = as.POSIXct(DateTime, tz='UTC', format = "%Y-%m-%dT%H:%M:%S")) %>%
-	select(ID,PID,Mission,Station,DateTime,SPM,Depth,Lat,Lon,Ag_440,SID)%>%
+	select(ID,PID,Project,Station,DateTime,SPM,Zstation,Zsecchi,Lat,Lon,Ag_440,SID)%>%
 	group_by(ID)
 sd_map <- SharedData$new(submap, key = ~str_pad(ID,3,pad = "0"), group = "iops")
 
 subrrs <- long_sensorBand %>% #dplyr::filter(Sensor=="MSI") %>%
-	select(ID,PID,Station,Depth,Sensor,Band,Rrs,SPM,QC_SPM,QC_Ag) %>%
+	select(ID,PID,Station,Zstation,Zsecchi,DateTime,Comment,Sensor,Band,Cwl,Rrs,SPM,QC_SPM,QC_Ag) %>%
 	group_by(ID)
 sd_rrs <- SharedData$new(subrrs, key = ~str_pad(ID,3,pad = "0"), group = "iops")
 
 subtab <- wide_db %>%
 	mutate(ID = str_pad(ID,3,pad = "0"),
 		  DateTime = as.POSIXct(DateTime, tz='UTC', format = "%Y-%m-%dT%H:%M:%S")) %>%
-	select(ID,SID,PID,SPID,Station,DateTime,QC_SPM,QC_Ag,Comment) %>% group_by(ID)
+	select(ID,SID,PID,SPID,Station,Zstation,Zsecchi,DateTime,QC_SPM,QC_Ag,Comment) %>% group_by(ID)
 
 sd_tab <- SharedData$new(subtab, key = ~str_pad(ID,3,pad = "0"), group = "iops")
 ```
@@ -146,11 +147,17 @@ Row {.sidebar}
 -----------------------------------------------------------------------
 ### filters
 ```{r}
-filter_checkbox(id = "mission",
-              label = "Mission",
+filter_checkbox(id = "Project",
+              label = "Project",
               sharedData = sd_map,
-		    group = ~Mission,
+		    group = ~Project,
 		    inline = T
+		    )
+
+filter_select(id = "ID",
+              label = "ID",
+              sharedData = sd_map,
+		    group = ~ID
 		    )
 
 filter_select(id = "PID",
@@ -180,7 +187,7 @@ filter_select(id = "DateTime",
 filter_slider(id = "Depth",
               label = "Station Depth",
               sharedData = sd_map,
-		    column = ~Depth
+		    column = ~Zstation
 		    )
 
 filter_slider(id = "SPM",
@@ -233,7 +240,8 @@ map <- leaflet(sd_map) %>%
 				  			'<b>Station</b>: ', Station, '<br>',
 				  			'<b>DateTime</b>: ', DateTime, '<br>',
 				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
-				  			'<b>Depth</b>: ', Depth, ' [m-1]<br>',
+				  			'<b>Zstation</b>: ', Zstation, ' [m-1]<br>',
+				  			'<b>Zsecchi</b>: ', Zsecchi, ' [m-1]<br>',
 				  			paste0('<a href="',link,'">COPS Report:</a>')
 				  			)
 				  ) %>%
@@ -293,14 +301,15 @@ Column {.tabset}
 ### Rrs
 
 ```{r Rrs ,echo=FALSE, message=FALSE}
-prrs <- plot_ly(sd_rrs, x = ~Band, y = ~Rrs, split = ~Sensor,
+prrs <- plot_ly(sd_rrs, x = ~Cwl, y = ~Rrs, split = ~Sensor,
 					  text=~paste0(
 					  		'<b>ID</b>: ', ID, '<br>',
 				  			'<b>PID</b>: ', PID, '<br>',
 				  			'<b>Station</b>: ', Station, '<br>',
 					  		'<b>DateTime</b>: ', DateTime, '<br>',
+					  		'<b>Band</b>: ', Band, '<br>',
 				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
-				  			'<b>Depth</b>: ', Depth, ' [m-1]<br>',
+				  			'<b>Zstation</b>: ', Zstation, ' [m-1]<br>',
 				  			'<b>QC</b>: ', QC_SPM, '<br>',
 					  		'<b>Comment</b>: ', Comment, '<br>'
 				  			)) %>%
@@ -320,7 +329,7 @@ piops <- plot_ly(sd_iops, x = ~Lambda, visible = "legendonly", # linetype = ~as.
 				  '<b>Station</b>: ', Station, '<br>',
 				  '<b>DateTime</b>: ', DateTime, '<br>',
 				  '<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
-				  '<b>Depth</b>: ', Depth, ' [m-1]<br>'
+				  '<b>Zstation</b>: ', Zstation, ' [m-1]<br>',
 				  '<b>QC</b>: ', QC_Ag, '<br>',
 				  '<b>Comment</b>: ', Comment, '<br>'
 				  )) %>%

@@ -58,9 +58,9 @@ qc_spm <- function(project, mission, LabLog, Synthesis, SPM_tbl, QCSPM=NULL) {
 		# I used the supersede way, the above should be the new one
 		Bbp_tbl <- Bbp_tbl %>% filter_at(vars(matches("Bbp_")), any_vars(!is.na(.)))
 
-		Bbp_tbl <- SPM_tbl %>% left_join(LabLog %>% select(SID, ID, Depth), by="SID") %>%
-			select(SID, ID, Replicate, Depth) %>%
-			left_join(Bbp_tbl, by=c("ID")) %>% rename(Z_SPM = Depth.x, Z_Bbp = Depth.y)
+		Bbp_tbl <- SPM_tbl %>% left_join(LabLog %>% select(SID, ID, Zsample), by="SID") %>%
+			select(SID, ID, Replicate, Zsample) %>%
+			left_join(Bbp_tbl, by=c("ID")) %>% rename(Z_SPM = Zsample, Z_Bbp = Depth)
 
 		# Keep closest depth between SPM (discrete) and Bbp (continuous)
 		Bbp <- Bbp_tbl %>% filter(near(Z_SPM, Z_Bbp, tol = 2)) %>% group_by(SID) %>%
@@ -127,24 +127,31 @@ qc_spm <- function(project, mission, LabLog, Synthesis, SPM_tbl, QCSPM=NULL) {
 # HTML report -------------------------------------------------------------
 
 	# Add Statistics per station
-	Station_stats <- SPM_tbl %>% group_by(SID) %>% tidyr::nest() %>% mutate(
-		CV_SPM = purrr::map_dbl(.x = data, ~ sd(.x$SPM , na.rm = T),
-		CV_PIM = purrr::map_dbl(.x = data, ~ sd(.x$PIM , na.rm = T)
-	) %>% select(!data)
+	Station_stats <- SPM_tbl %>%
+		group_by(SID) %>%
+		tidyr::nest() %>%
+		mutate(CV_SPM = purrr::map_dbl(.x = data, ~ sd(.x$SPM , na.rm = T)),
+			  CV_PIM = purrr::map_dbl(.x = data, ~ sd(.x$PIM , na.rm = T))) %>%
+		select(!data)
 
 	write.csv(Station_stats, file = file.path(qc_dir, paste0("SPM_",mission,"_samples_stats.csv")), row.names = F)
 
-	Station <- Synthesis %>% dplyr::select(ID,Station,Depth) %>% dplyr::rename(Z_Station = Depth)
+	Station <- Synthesis %>% dplyr::select(ID,Station,Zstation) #%>% dplyr::rename(Z_Station = Depth)
 
-	SPM <- SPM_tbl %>% dplyr::left_join(LabLog %>% select(SID, ID, Depth), by="SID") %>%
-		dplyr::rename(Z_Sample = Depth) %>% dplyr::left_join(Station, by ="ID")
+	SPM <- SPM_tbl %>%
+		dplyr::left_join(LabLog %>% select(SID, ID, Zsample), by="SID") %>%
+		#dplyr::rename(Z_Sample = Depth) %>%
+		dplyr::left_join(Station, by ="ID")
 
-	SPM_datatable <- SPM %>% select(ID,SID,Station,Z_Station,Z_Sample,Replicate,QC,SPM,PIM,POM,V)
+	SPM_datatable <- SPM %>% select(ID,SID,Station,Zstation,Zsample,Replicate,QC,SPM,PIM,POM,V)
 
-	GLOB <- SPM %>% left_join(Bbp %>% select(!ID), by=c("SID","Replicate")) %>%
-		left_join(Anap, by="SID") %>% left_join(Ap, by="SID") %>% left_join(Aph, by="SID")
+	GLOB <- SPM %>%
+		left_join(Bbp %>% select(!ID), by=c("SID","Replicate")) %>%
+		left_join(Anap, by="SID") %>%
+		left_join(Ap, by="SID") %>%
+		left_join(Aph, by="SID")
 
-	report = paste0("QC_SPM_",Sys.Date(),"_",str_c(mission,collapse = "_"))
+	report <- paste0("QC_SPM_",Sys.Date(),"_",str_c(mission,collapse = "_"))
 
 	rmarkdown::render(file.path(Sys.getenv("R_lighthouse_rmd_dir"), "QC_SPM.Rmd"),
 				   output_dir = file.path(project,"ProLog", "SPM"),

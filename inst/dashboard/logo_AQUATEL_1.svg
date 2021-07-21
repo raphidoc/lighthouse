@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="25.584116mm"
+   height="11.82336mm"
+   viewBox="0 0 25.584115 11.823361"
+   version="1.1"
+   id="svg8"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)"
+   sodipodi:docname="logo_AQUATEL_1.svg">
+  <defs
+     id="defs2">
+    <rect
+       x="46.638908"
+       y="118.55834"
+       width="50.188782"
+       height="12.951729"
+       id="rect909" />
+    <rect
+       x="46.638908"
+       y="118.55834"
+       width="50.188782"
+       height="12.951729"
+       id="rect909-3" />
+    <rect
+       x="46.638908"
+       y="118.55834"
+       width="50.188782"
+       height="12.951729"
+       id="rect864" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="6.2340872"
+     inkscape:cx="50.022085"
+     inkscape:cy="16.680143"
+     inkscape:document-units="mm"
+     inkscape:current-layer="svg8"
+     inkscape:document-rotation="0"
+     showgrid="false"
+     inkscape:window-width="1920"
+     inkscape:window-height="1043"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="text"
+     transform="translate(-75.560812,-79.209682)">
+    <text
+       xml:space="preserve"
+       id="text907"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.5833px;line-height:1.25;font-family:Abyssopelagic;-inkscape-font-specification:'Abyssopelagic, @wght=457';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;font-variation-settings:'wght' 457;letter-spacing:0px;word-spacing:0px;white-space:pre;shape-inside:url(#rect909-3);fill:#000000;fill-opacity:0.994438;stroke:none;"
+       transform="matrix(0.39531292,0,0,0.3685758,62.278213,35.202163)"
+       inkscape:transform-center-x="0.24829131"
+       inkscape:transform-center-y="-0.045360063"><tspan
+         x="46.638672"
+         y="128.11169"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.5833px;font-family:Abyssopelagic;-inkscape-font-specification:'Abyssopelagic, @wght=457';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;font-variation-settings:'wght' 457;fill:#000000;fill-opacity:0.994438">AQUATEL</tspan></tspan></text>
+  </g>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-75.560812,-79.209682)" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.130428;stroke-linecap:round;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="M 0.55478107,7.8946089 C 8.462195,12.47869 16.471976,12.778858 24.926115,7.9550836"
+     id="path18"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.130428;stroke-linecap:round;stroke-linejoin:bevel;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="M 0.55239143,7.8911764 C 8.2896901,2.1966086 16.367576,1.9334241 24.928504,7.9402778"
+     id="path18-3"
+     sodipodi:nodetypes="cc" />
+  <ellipse
+     style="fill:none;stroke:#000000;stroke-width:0.142877;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     id="path55"
+     cx="12.610587"
+     cy="7.4882798"
+     rx="4.4061141"
+     ry="3.8716831" />
+  <ellipse
+     style="fill:none;fill-opacity:0;stroke:#000000;stroke-width:0.0999561;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     id="path55-6"
+     cx="12.602339"
+     cy="5.1751599"
+     rx="1.6589782"
+     ry="1.4577556" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.0791807;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="M 10.665164,5.4360041 8.9472454,6.7379315"
+     id="path895" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.0842593;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="M 11.239171,6.4408103 10.404039,7.4959511"
+     id="path897" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="M 12.621105,6.9729968 V 7.9377232"
+     id="path899"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.0842593;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="m 13.89806,6.5395628 0.830904,0.9611769"
+     id="path901" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.0842593;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     d="m 14.626993,5.407795 1.616835,1.3186159"
+     id="path903" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:0.0610782px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+     d="m 8.2335678,7.8927922 c 1.2731637,-0.8548462 2.2924842,0.047971 2.2924842,0.047971 1.123965,1.0847528 2.095053,-0.00304 2.095053,-0.00304 1.197868,-0.938518 2.373978,0.00324 2.373978,0.00324 1.143448,1.080559 1.956192,-0.00529 1.956192,-0.00529"
+     id="path905"
+     sodipodi:nodetypes="ccccc" />
+</svg>

@@ -2,7 +2,7 @@
 title: "lighthouse"
 output: 
   flexdashboard::flex_dashboard:
-    logo: logo.png
+    logo: logo_AQUATEL_1.svg
     theme: united
     #social: menu
     css: style2.css
@@ -36,40 +36,111 @@ knitr::opts_chunk$set(echo = F, cache = F, message = F, warning = F)
 ```{r load data,}
 load("/mnt/D/Documents/Maitrise/Paper/Models/Data/models_db.RData")
 
-wide_db <- models_db %>% select(!c("data")) %>% unnest(cols = c(OLI,S2A), names_sep="_") %>%
-	mutate(Region = ifelse(str_detect(Project,"CHONe|WISE|PMZA"),"EGSL","JB")) %>%
-	dplyr::relocate(ID,PID,Station,Region,DateTime,Lat,Lon,Zstation,Zsecchi) 
+# models_db <- models_db %>% mutate(ROI= str_extract(PID,"[:alpha:]+[:digit:]{0,1}"))
 
-# add DataLog to plot data with action taken (QC, and comments)
-DataLog <- readr::read_csv("/mnt/D/Documents/Maitrise/Paper/Models/DataLog.csv")
+# Create a DataLog to keep track of comments on data and outlier removal
+if (!file.exists("/mnt/D/Documents/Maitrise/Paper/Models/DataLog.csv")) {
+	DataLog <- models_db %>% select(ID,PID) %>%
+		mutate(QC_SPM=1,
+			  QC_Ag=1,
+			  QC_Bbp=1,
+			  Comment="")
+	
+	write.csv(DataLog, "/mnt/D/Documents/Maitrise/Paper/Models/DataLog.csv", row.names=F)
+	
+} else {
+	DataLog <- readr::read_csv("/mnt/D/Documents/Maitrise/Paper/Models/DataLog.csv")
+}
 
-wide_db <- wide_db %>% left_join(DataLog %>% select(ID,QC_SPM,QC_Ag,Comment), by="ID")
+# Check for bottom effect, linearly based on secchi depth
+br_check <- function(Zsecchi,Zstation){
+	
+	if (is.na(Zsecchi) | is.na(Zstation)) {
+		NA
+	} else if (Zsecchi > Zstation){
+		# Case when error of entry
+		NA
+	} else if (Zsecchi == 999) {
+		# Case when Secchi touch the bottom
+		T
+	} else if (Zsecchi*2 > Zstation) {
+		# assume a linear travel of light in water...
+		T
+	} else {
+		F
+	}
+	#str_c(Zstation, Zsecchi)
+}
 
-wide_db <- wide_db %>% rename_with(~str_replace(.,"S2A","MSI"), starts_with("S2A"))
+models_db <- models_db %>% left_join(DataLog %>% select(ID,QC_SPM,QC_Ag,QC_Bbp,Comment), by="ID") %>%
+	mutate(Region = ifelse(str_detect(Project,"CHONe|WISE|PMZA"),"EGSL","JB"),
+		  OptShallow = br_check(Zsecchi,Zstation),
+		  PIM_frac = ifelse((PIM/SPM)*100 <= 100,(PIM/SPM)*100,NA)) %>%
+	relocate(matches("QC|Comment|ROI|Region"), .after = "DateTime") %>%
+	relocate("OptShallow", .after = "Zsecchi")
+	
 
+# Simulated data for matchup and validation
+wide_sensor <- models_db %>% 
+	select(!c("data")) %>%
+	unnest(cols = c(OLI,S2A), names_sep="_")
 
-long_sensor <- wide_db %>% pivot_longer(cols = all_of(str_subset(names(wide_db),
-										"OLI|MSI")),
-							  names_to = c("Sensor",".value"),
-							  names_pattern = "(.+)_(.+)$")
+wide_sensor <- wide_sensor %>% rename_with(~str_replace(.,"S2A","MSI"), starts_with("S2A")) %>%
+	mutate(across(matches("OLI|MSI"), ~na_if(., .<0)))
 
-long_sensorBand <- wide_db %>% pivot_longer(cols = all_of(str_subset(names(wide_db),
-										"OLI|MSI|OLCI")),
-							  names_to = c("Sensor","Band","Cwl"),
-							  values_to = "Rrs",	
-							  values_drop_na = T,
-							  names_sep = "_") %>% mutate(Cwl = as.numeric(Cwl))
+long_sensor <- wide_sensor %>%
+	pivot_longer(cols = all_of(str_subset(names(wide_sensor),"OLI|MSI")),
+			   names_to = c("Sensor","Band","Cwl"),
+			   values_to = "Rrs",
+			   values_drop_na = T,
+			   names_sep = "_") %>%
+	mutate(Cwl = as.numeric(Cwl))
 
-Sensor_nest <- long_sensor %>% group_by(Sensor) %>% nest()
+# In-situ data for algo development
+possibleApprox <- purrr::possibly(approx, otherwise=NA)
+
+approx_op <- models_db %>%
+	mutate(dataprox = purrr::map(.x = data, ~ data.frame(possibleApprox(.x$Lambda,.x$Rrs,c(380:800), na.rm = T)))) %>%
+	mutate(dataprox = purrr::map(dataprox, ~ dplyr::rename(.,Lambda = x, Rrs = y))) %>%
+	relocate(dataprox, .after=data)
+
+# long_insitu_raw <- approx_op %>%
+# 	#mutate(data = (purrr::map(data, ~ dplyr::filter(., Lambda %in% c(440:450,540:560,650:670,725:750))))) %>%
+# 	select(!c("OLI","S2A","S3A","dataprox")) %>%
+# 	unnest(cols= c(data))
+# 
+# wide_insitu_raw <- long_insitu_raw %>%
+# 	pivot_wider(names_from = Lambda,
+# 			  values_from = Rrs,
+# 			  names_prefix = "Rrs_") %>%
+# 	relocate(matches("Rrs"), .after = Region)
+
+long_insitu <- approx_op %>%
+	mutate(dataprox = (purrr::map(dataprox, ~ dplyr::filter(., Lambda %in% c(380,395,440,560,665,710,740,800))))) %>%
+	select(!c("OLI","S2A","data")) %>%
+	unnest(cols= c(dataprox))
+
+wide_insitu <- long_insitu %>%
+	pivot_wider(names_from = Lambda,
+			  values_from = Rrs,
+			  names_prefix = "Rrs_") %>%
+	relocate(matches("Rrs"), .after = Region) %>%
+	ungroup()
+
+# Check that aprox function dont mess up
+# plot(wide_insitu_raw$Rrs_650, wide_insitu$Rrs_665)
 ```
 
 ```{r interpolation of iop to common wl 394-700 nm}
-iop_long <- wide_db %>% pivot_longer(cols = all_of(str_subset(names(wide_db),
-										"A_|Ap_|Aph_|Ag_|Anap_|Bbp_|Bb_")),
-							  names_to = c(".value","Lambda"),
-							  names_pattern = "(.+)_(.+)",
-							  values_drop_na = T
-							  )
+iop_long <- wide_insitu %>%
+	select(matches("^ID$|A_|Ap_|Aph_|Ag_|Anap_|Bbp_|Bb_")) %>%
+	pivot_longer(cols = all_of(str_subset(names(wide_insitu), "A_|Ap_|Aph_|Ag_|Anap_|Bbp_|Bb_")),
+			   names_to = c(".value","Lambda"),
+	 		   names_pattern = "(.+)_(.+)",
+	 		   values_drop_na = T
+	 		   ) %>%
+	mutate(Lambda = as.numeric(Lambda))
+	
 
 
 iop_nest <- iop_long %>% arrange(ID,Lambda) %>%
@@ -104,7 +175,10 @@ Approxiop <- Approxiop %>% select(A_x,!contains("x")) %>% mutate(
 	Ag = Ag_y,
 	Bbp = Bbp_y,
 	Bb = Bb_y
-) %>% select(!contains(c("y","x","Lambda_Lambda")))
+	) %>%
+	select(!contains(c("y","x","Lambda_Lambda"))) %>%
+	filter(Lambda %in%
+		  	c(305,320,330,340,380,394,395,412,420,443,465,470,490,510,532,555,560,589,620,625,665,683,694,700,710,740,780,875))
 
 # Rrs at 9 wl give 255 731 row ... rather slow but working
 # iopgate <- long_sensorBand %>% filter(Sensor=="MSI") %>%
@@ -113,25 +187,25 @@ Approxiop <- Approxiop %>% select(A_x,!contains("x")) %>% mutate(
 # 	na.omit() %>% ungroup()
 
 
-iopgate <- wide_db %>%
+iopgate <- wide_insitu %>%
 	select(ID,PID,Project,Station,Zstation,DateTime,Comment,SPM,QC_SPM,QC_Ag) %>%
-	right_join(Approxiop, by="ID") %>% filter(Lambda > 350)
+	right_join(Approxiop, by="ID")
 ```
 
 ```{r sharedata objects}
-sd_iops <- SharedData$new(iopgate, key = ~str_pad(ID,3,pad = "0"), group = "iops")
+sd_iops <- SharedData$new(iopgate %>% group_by(ID), key = ~str_pad(ID,3,pad = "0"), group = "iops")
 
-submap <- wide_db %>% mutate(DateTime = as.POSIXct(DateTime, tz='UTC', format = "%Y-%m-%dT%H:%M:%S")) %>%
-	select(ID,PID,Project,Station,DateTime,SPM,Zstation,Zsecchi,Lat,Lon,Ag_440,SID)%>%
+submap <- wide_insitu %>% mutate(DateTime = as.POSIXct(DateTime, tz='UTC', format = "%Y-%m-%dT%H:%M:%S")) %>%
+	select(ID,PID,Project,Station,DateTime,SPM,Zstation,Zsecchi,Lat,Lon,Ag_440,SID) %>%
 	group_by(ID)
 sd_map <- SharedData$new(submap, key = ~str_pad(ID,3,pad = "0"), group = "iops")
 
-subrrs <- long_sensorBand %>% #dplyr::filter(Sensor=="MSI") %>%
-	select(ID,PID,Station,Zstation,Zsecchi,DateTime,Comment,Sensor,Band,Cwl,Rrs,SPM,QC_SPM,QC_Ag) %>%
+subrrs <- long_insitu %>% #dplyr::filter(Sensor=="MSI") %>%
+	select(ID,PID,Station,Zstation,Zsecchi,DateTime,Comment,Lambda,Rrs,SPM,Ag_440,QC_SPM,QC_Ag) %>%
 	group_by(ID)
 sd_rrs <- SharedData$new(subrrs, key = ~str_pad(ID,3,pad = "0"), group = "iops")
 
-subtab <- wide_db %>%
+subtab <- wide_insitu %>%
 	mutate(ID = str_pad(ID,3,pad = "0"),
 		  DateTime = as.POSIXct(DateTime, tz='UTC', format = "%Y-%m-%dT%H:%M:%S")) %>%
 	select(ID,SID,PID,SPID,Station,Zstation,Zsecchi,DateTime,QC_SPM,QC_Ag,Comment) %>% group_by(ID)
@@ -193,13 +267,13 @@ filter_slider(id = "Depth",
 filter_slider(id = "SPM",
               label = "SPM concentration",
               sharedData = sd_map,
-		    column = ~SPM
+		    column = ~signif(SPM,2)
 		    )
 
 filter_slider(id = "Ag_440",
               label = "CDOM concentration",
               sharedData = sd_map,
-		    column = ~Ag_440
+		    column = ~signif(Ag_440,2)
 		    )
 ```
 
@@ -256,7 +330,7 @@ map <- leaflet(sd_map) %>%
   addEasyButton(easyButton(
     icon="fa-crosshairs", title="Locate Me",
     onClick=JS("function(btn, map){ map.locate({setView: true}); }"))) %>% 
-  addSearchFeatures(targetGroups = "Stations")
+  addSearchFeatures(targetGroups = c("Stations"))
 
 map
 
@@ -283,7 +357,7 @@ datatable(sd_tab,
     columnDefs = list(
         list(
           visible = FALSE,
-          targets = c(1,3,5,7:8)
+          targets = c(1,3,5,6,8,9)
         )),
     deferRender = TRUE,
     scrollY = 10,
@@ -301,20 +375,28 @@ Column {.tabset}
 ### Rrs
 
 ```{r Rrs ,echo=FALSE, message=FALSE}
-prrs <- plot_ly(sd_rrs, x = ~Cwl, y = ~Rrs, split = ~Sensor,
+prrs <- plot_ly(sd_rrs, x = ~Lambda, y = ~Rrs,
 					  text=~paste0(
 					  		'<b>ID</b>: ', ID, '<br>',
 				  			'<b>PID</b>: ', PID, '<br>',
 				  			'<b>Station</b>: ', Station, '<br>',
 					  		'<b>DateTime</b>: ', DateTime, '<br>',
-					  		'<b>Band</b>: ', Band, '<br>',
-				  			'<b>SPM</b>: ', SPM, ' [mg.l-1]<br>',
+				  			'<b>SPM</b>: ', SPM, ' [mg.L<sup>-1</sup>]<br>',
+					  		'<b>a<sub>g</sub>(440)</b>: ', Ag_440, ' [m<sup>-1</sup>]<br>',
 				  			'<b>Zstation</b>: ', Zstation, ' [m-1]<br>',
+					  		'<b>Zsecchi</b>: ', Zsecchi, ' [m-1]<br>',
 				  			'<b>QC</b>: ', QC_SPM, '<br>',
 					  		'<b>Comment</b>: ', Comment, '<br>'
 				  			)) %>%
-	add_lines(color = ~as.character(QC_SPM), colors = c("0" = "red", "1" = "steelblue3"), showlegend= T) %>%
-	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F)
+	add_lines(color = ~as.character(QC_SPM), colors = c("0" = "red", "1" = "steelblue3", "2"="orange"), showlegend= T) %>%
+	layout(
+	 	shapes = list(
+	 		type = "rect", fillcolor = "transparent", xref = "paper", yref = "paper", x0 = 0, x1 = 1, y0 = 0.01, y1 = 1),
+	 	xaxis = list(title = TeX("wavelength\\ [nm]"), type = ""),
+	 	yaxis = list(title = TeX("R_{rs}\\ [sr^{-1}]"), type = "")
+	 	) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) %>%
+	config(mathjax = "cdn", displayModeBar = T)
 
 prrs
 ```
@@ -323,8 +405,10 @@ prrs
 
 ```{r IOPs, echo=FALSE, message=FALSE}
 
-piops <- plot_ly(sd_iops, x = ~Lambda, visible = "legendonly", # linetype = ~as.character(QC_SPM), linetypes = c("0" = "dash", "1" = "solid"), showlegend = T,
-		    text=~paste0(
+piops <- plot_ly(sd_iops, x = ~Lambda, visible = "legendonly",
+			  # linetype = ~as.character(QC_SPM), linetypes = c("0" = "dash", "1" = "solid"), showlegend = T,
+			  
+			  text=~paste0(
 				  '<b>PID</b>: ', PID, '<br>',
 				  '<b>Station</b>: ', Station, '<br>',
 				  '<b>DateTime</b>: ', DateTime, '<br>',
@@ -339,8 +423,15 @@ piops <- plot_ly(sd_iops, x = ~Lambda, visible = "legendonly", # linetype = ~as.
 	add_lines(y = ~Anap , color="Anap", showlegend = T) %>%
 	add_lines(y = ~Ag , color="Ag", showlegend = T) %>%
 	add_lines(y = ~Bb , color="Bb", showlegend = T) %>%
-	add_lines(y = ~Bbp , color="Bbp", showlegend = T) %>%
-	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) 
+	add_lines(y = ~Bbp , color="Bbp", showlegend = T)  %>%
+	 layout(
+	 	shapes = list(
+	 		type = "rect", fillcolor = "transparent", xref = "paper", yref = "paper", x0 = 0, x1 = 1, y0 = 0.01, y1 = 1),
+	 	xaxis = list(title = TeX("wavelength\\ [nm]"), type = ""),
+	 	yaxis = list(title = TeX("IOP\\ coefficient\\ [m^{-1}]"), type = "")
+	 	) %>%
+	highlight(on = "plotly_click", off = "plotly_relayout", selectize = F, dynamic = F, persistent = F) %>%
+	config(mathjax = "cdn", displayModeBar = T)
 
 piops
 ```

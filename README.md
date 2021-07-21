@@ -1,4 +1,4 @@
-# ![logo](/images/logo.png) lighthouse
+# ![logo](/images/logo.svg) lighthouse
 Set of tools for biogeochemioptic data processing and management, which primary goal is to harmonize the five package:
 - [asd](https://srscm03.uqar.ca/belasi01/asd) (ASD processing)
 - [Cops](https://srscm03.uqar.ca/belasi01/Cops) (C-OPS processing)

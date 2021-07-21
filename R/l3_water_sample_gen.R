@@ -202,7 +202,10 @@ l3_water_sample_gen <- function(project,mission="",params=c("SPM","Ag","Ap")) {
 
 			ID <- str_extract(Ag$ID, "[:digit:]+")
 			wl <- Ag$Lambda
-			Agdata <- Ag$Ag.fitted
+
+			# which Ag to use .offset or .fitted
+			#Agdata <- Ag$Ag.fitted
+			Agdata <- Ag$Ag.offset
 
 			temp <- data.frame(ID,t(Agdata))
 			names(temp) <- c("SID",paste0("Ag_",wl))

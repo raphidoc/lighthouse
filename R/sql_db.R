@@ -28,7 +28,6 @@ sql_gen <- function(project, mission="",overw=F) {
 
 # SQLite connection -------------------------------------------------------
 
-
 	con <- dbConnect(RSQLite::SQLite(), file.path(L3,paste0(mission,".sqlite")))
 
 	if (!exists("con")) {stop("SQLite connection not established")}
@@ -36,7 +35,6 @@ sql_gen <- function(project, mission="",overw=F) {
 	if (length(dbListTables(con)) != 0 & overw==F) {
 		stop(mission,".sqlite is not empty and overwrite is set to F")
 	}
-
 
 # Params manager ----------------------------------------------------------
 
